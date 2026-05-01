@@ -1,0 +1,102 @@
+#ifndef ASTROLOGIC_H
+#define ASTROLOGIC_H
+
+#include <Arduino.h>
+
+// Pillar 2: Translation (Lean Version)
+// Scaler: 2^24 / 360 = 46603.3777
+#define COORD_TO_24BIT 46603.3777
+
+/**
+ * Assembles a NexStar GPS/Time Update Packet (0x3B Command)
+ * Packet Structure: [3B] [Len] [Source] [Dest] [Cmd] [Payload...] [Checksum]
+ */
+void buildNEXPacket(uint8_t *buf, double lat, double lon, uint8_t h, uint8_t m, uint8_t s) {
+    // 1. Preamble
+    buf[0] = 0x3B;
+    
+    // 2. Length (Everything after 3B until the end, including checksum)
+    buf[1] = 0x09; // Adjusted based on payload size (Source+Dest+Cmd+Payload+CS)
+
+    // 3. Routing
+    buf[2] = 0x0E; // Source: GPS
+    buf[3] = 0x01; // Destination: Main Control
+    buf[4] = 0x3B; // Command: Time/Location Update
+
+    // 4. Payload: Latitude (24-bit)
+    if (lat < 0) lat += 360.0;
+    uint32_t lat24 = (uint32_t)(lat * COORD_TO_24BIT);
+    buf[5] = (lat24 >> 16) & 0xFF;
+    buf[6] = (lat24 >> 8) & 0xFF;
+    buf[7] = lat24 & 0xFF;
+
+    // 5. Payload: Time (Raw Bytes)
+    buf[8] = h;
+    buf[9] = m;
+    buf[10] = s;
+
+    // 6. The Bodyguard (Checksum)
+    uint16_t sum = 0;
+    for (uint8_t i = 1; i <= 10; i++) {
+        sum += buf[i];
+    }
+    buf[11] = (uint8_t)((-sum) & 0xFF); // Two's Complement
+}
+
+// We use macros or inline to save stack space
+inline void packNEXCoord(double coord, uint8_t &hi, uint8_t &mid, uint8_t &lo) {
+    if (coord < 0) coord += 360.0; 
+    uint32_t val = (uint32_t)(coord * COORD_TO_24BIT);
+    hi  = (val >> 16) & 0xFF;
+    mid = (val >> 8) & 0xFF;
+    lo  =  val & 0xFF;
+}
+
+// Time is just a direct pass-through for NEX, no helper needed.
+// Use: packet[7] = gps.time.hour(); 
+
+/**
+ * Pillar 3: Delivery (Checksum)
+ * Calculates the Two's Complement checksum for a NEX AUX packet.
+ * packet: the array of bytes
+ * len: total length of the packet
+ */
+uint8_t calculateNEXChecksum(uint8_t *packet, uint8_t len) {
+    uint16_t sum = 0;
+    // Start at index 1 to skip the Preamble (0x3B)
+    for (uint8_t i = 1; i < len - 1; i++) {
+        sum += packet[i];
+    }
+    // Two's complement: sum the bytes, then take (0 - sum) & 0xFF
+    return (uint8_t)((-sum) & 0xFF);
+}
+
+inline void buildNEXPacket(uint8_t *buf, double lat, double lon, uint8_t h, uint8_t m, uint8_t s) {
+    // 1. Preamble & Setup
+    buf[0] = 0x3B;
+    buf[1] = 0x09; // Length (Bytes following)
+    buf[2] = 0x0E; // Source: GPS
+    buf[3] = 0x01; // Dest: Mount
+    buf[4] = 0x3B; // Command: Update Time/Pos
+
+    // 2. 24-bit Lat Conversion
+    if (lat < 0) lat += 360.0;
+    uint32_t latVal = (uint32_t)(lat * COORD_TO_24BIT);
+    buf[5] = (latVal >> 16) & 0xFF;
+    buf[6] = (latVal >> 8) & 0xFF;
+    buf[7] = latVal & 0xFF;
+
+    // 3. Time Payload (Raw Hex Bytes)
+    buf[8] = h;
+    buf[9] = m;
+    buf[10] = s;
+
+    // 4. Two's Complement Checksum
+    uint16_t sum = 0;
+    for (uint8_t i = 1; i <= 10; i++) {
+        sum += buf[i];
+    }
+    buf[11] = (uint8_t)((-sum) & 0xFF); 
+}
+
+#endif
