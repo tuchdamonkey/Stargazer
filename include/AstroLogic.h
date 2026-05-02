@@ -12,11 +12,19 @@
  * Packet Structure: [3B] [Len] [Source] [Dest] [Cmd] [Payload...] [Checksum]
  */
 void buildNEXPacket(uint8_t *buf, double lat, double lon, uint8_t h, uint8_t m, uint8_t s) {
+    
+    // --- TOP LEVEL SANITIZATION ---
+    // Nashville Fix: Normalize West to 0-360 range
+    if (lon < 0) {
+        lon += 360.0; 
+    }
+    // (Optional) If your mount expects 0-360 for Lat as well, you'd do it here.
+
     // 1. Preamble
     buf[0] = 0x3B;
     
-    // 2. Length (Everything after 3B until the end, including checksum)
-    buf[1] = 0x09; // Adjusted based on payload size (Source+Dest+Cmd+Payload+CS)
+    // 2. Length (13 bytes follow this one)
+    buf[1] = 0x0D; 
 
     // 3. Routing
     buf[2] = 0x0E; // Source: GPS
@@ -24,23 +32,28 @@ void buildNEXPacket(uint8_t *buf, double lat, double lon, uint8_t h, uint8_t m, 
     buf[4] = 0x3B; // Command: Time/Location Update
 
     // 4. Payload: Latitude (24-bit)
-    if (lat < 0) lat += 360.0;
     uint32_t lat24 = (uint32_t)(lat * COORD_TO_24BIT);
     buf[5] = (lat24 >> 16) & 0xFF;
     buf[6] = (lat24 >> 8) & 0xFF;
     buf[7] = lat24 & 0xFF;
 
-    // 5. Payload: Time (Raw Bytes)
-    buf[8] = h;
-    buf[9] = m;
-    buf[10] = s;
+    // 5. Payload: Longitude (24-bit)
+    uint32_t lon24 = (uint32_t)(lon * COORD_TO_24BIT);
+    buf[8] = (lon24 >> 16) & 0xFF;
+    buf[9] = (lon24 >> 8) & 0xFF;
+    buf[10] = lon24 & 0xFF;
 
-    // 6. The Bodyguard (Checksum)
+    // 6. Payload: Time (Raw Bytes)
+    buf[11] = h;
+    buf[12] = m;
+    buf[13] = s;
+
+    // 7. The Bodyguard (Checksum)
     uint16_t sum = 0;
-    for (uint8_t i = 1; i <= 10; i++) {
+    for (uint8_t i = 1; i <= 13; i++) {
         sum += buf[i];
     }
-    buf[11] = (uint8_t)((-sum) & 0xFF); // Two's Complement
+    buf[14] = (uint8_t)((-sum) & 0xFF); 
 }
 
 // We use macros or inline to save stack space

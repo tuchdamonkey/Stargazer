@@ -1,6 +1,11 @@
 #include <Arduino.h>
 #include "Hardware_Config.h" 
 #include "GPS_sg.h"
+#include "AstroLogic.h"
+
+// ===== GLOBAL VARIABLES =====
+uint8_t packet[15]; // 15byte storage container for astrologic
+
 
 void setup() {
 
@@ -18,12 +23,16 @@ void setup() {
   digitalWrite(STATUS_LED, LOW);
 }
 void loop() {
- processGPS(); // This "encodes" the raw lines into useful data
-  
-  // Only print to the screen once every second so we can read it
-  static unsigned long lastPrint = 0;
-  if (millis() - lastPrint > 1000) {
-    displayGPS(); 
-    lastPrint = millis();
-  }
+    // 1. Check if GPS has new data
+    if (gps.location.isUpdated()) {
+        
+        // 2. Call the builder (The Execution)
+        buildNEXPacket(packet, gps.location.lat(), gps.location.lng(), hour, minute, second);
+        
+        // 3. Send the packet to the telescope
+        Serial1.write(packet, 15); 
+        
+        // 4. Debug: See it in the Serial Monitor
+        debugPrintPacket(); 
+    }
 }
