@@ -84,32 +84,6 @@ uint8_t calculateNEXChecksum(uint8_t *packet, uint8_t len) {
     return (uint8_t)((-sum) & 0xFF);
 }
 
-inline void buildNEXPacket(uint8_t *buf, double lat, double lon, uint8_t h, uint8_t m, uint8_t s) {
-    // 1. Preamble & Setup
-    buf[0] = 0x3B;
-    buf[1] = 0x09; // Length (Bytes following)
-    buf[2] = 0x0E; // Source: GPS
-    buf[3] = 0x01; // Dest: Mount
-    buf[4] = 0x3B; // Command: Update Time/Pos
 
-    // 2. 24-bit Lat Conversion
-    if (lat < 0) lat += 360.0;
-    uint32_t latVal = (uint32_t)(lat * COORD_TO_24BIT);
-    buf[5] = (latVal >> 16) & 0xFF;
-    buf[6] = (latVal >> 8) & 0xFF;
-    buf[7] = latVal & 0xFF;
-
-    // 3. Time Payload (Raw Hex Bytes)
-    buf[8] = h;
-    buf[9] = m;
-    buf[10] = s;
-
-    // 4. Two's Complement Checksum
-    uint16_t sum = 0;
-    for (uint8_t i = 1; i <= 10; i++) {
-        sum += buf[i];
-    }
-    buf[11] = (uint8_t)((-sum) & 0xFF); 
-}
 
 #endif

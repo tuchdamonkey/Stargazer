@@ -27,7 +27,14 @@ void loop() {
     if (gps.location.isUpdated()) {
         
         // 2. Call the builder (The Execution)
-        buildNEXPacket(packet, gps.location.lat(), gps.location.lng(), hour, minute, second);
+    buildNEXPacket(
+      packet, 
+     gps.location.lat(), 
+     gps.location.lng(), 
+     gps.time.hour(),   // Pulling from TinyGPS++ time object
+     gps.time.minute(), 
+     gps.time.second()
+      );
         
         // 3. Send the packet to the telescope
         Serial1.write(packet, 15); 
