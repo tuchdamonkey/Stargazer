@@ -84,6 +84,24 @@ uint8_t calculateNEXChecksum(uint8_t *packet, uint8_t len) {
     return (uint8_t)((-sum) & 0xFF);
 }
 
+// ============================================================================
+// DIAGNOSTICS & LOGGING
+// ============================================================================
+
+/**
+ * Narrates the outgoing hex for the logic analyzer/Serial Monitor.
+ */
+void logHexPacket(const char* label, uint8_t* packet, uint8_t len) {
+    Serial.print(label);
+    Serial.print(": ");
+    for (uint8_t i = 0; i < len; i++) {
+        if (*(packet + i) < 0x10) Serial.print("0"); 
+        Serial.print(*(packet + i), HEX);
+        Serial.print(" ");
+    }
+    Serial.println();
+}
+
 
 
 #endif

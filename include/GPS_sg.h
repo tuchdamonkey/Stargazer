@@ -26,40 +26,17 @@ void processGPS()
 
 void displayGPS()
 {
-  if (gps.location.isUpdated())
+  // Check if location is valid AND if the data is less than 2 seconds old
+  if (gps.location.isValid() && gps.location.age() < 2000)
   {
     Serial.print("LAT: ");
     Serial.println(gps.location.lat(), 6);
-    Serial.print("LNG: ");
-    Serial.println(gps.location.lng(), 6);
-    Serial.print("SATS: ");
-    Serial.println(gps.satellites.value());
-
-    //----- UTC Time -----
-    Serial.print("UTC: ");
-    if (gps.time.isValid())
-    {
-      if (gps.time.hour() < 10)
-        Serial.print(F("0"));
-      Serial.print(gps.time.hour());
-      Serial.print(F(":"));
-
-      // Use .minute() instead of .min()
-      if (gps.time.minute() < 10)
-        Serial.print(F("0"));
-      Serial.print(gps.time.minute());
-      Serial.print(F(":"));
-
-      // Use .second() instead of .sec()
-      if (gps.time.second() < 10)
-        Serial.print(F("0"));
-      Serial.print(gps.time.second());
-      Serial.println();
-    }
-    else
-    {
-      Serial.println("WAITING FOR TIME...");
-    }
+    // ... rest of your display code ...
+  }
+  else if (gps.location.age() > 5000)
+  {
+    // If it's been more than 5 seconds, let's signal a warning
+    Serial.println("STALE GPS DATA - CHECK SIGNAL");
   }
 }
 
