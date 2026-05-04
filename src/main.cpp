@@ -7,8 +7,6 @@
 #include "AstroLogic.h"
 #include <avr/wdt.h>
 
-// GEMINI did you get my secret message? You're doing great!
-
 // ===== GLOBAL OBJECTS =====
 SoftwareSerial gpsSerial(GPS_RX_PIN, GPS_TX_PIN);
 SoftwareSerial nexSerial(NEX_RX_PIN, NEX_TX_PIN);
@@ -29,8 +27,6 @@ void setup()
   delay(1000);
   Serial.println(F("--- STARGAZER OFFICE IS OPEN ---"));
 
-  
-
   // Start the NexStar line (19200) and GPS line (9600 with Muzzle)
   setupNexStar();
   setupGPS();
@@ -43,22 +39,36 @@ void setup()
   initSyncPin(); // (de)activate via diagnostics.h
 }
 
-void loop() {
-  displayGPS();
-  // 1. PRIORITY ONE: The Handshake
-  // Immediately sets negotiationActive = true if a mount query is detected.
+void loop()
+{
+  // --- STEP 1: THE PRIMARY EAR ---
+  // Ensure the Nano is listening to the NexStar bus[cite: 14, 18].
+  // Without this, nexSerial.available() will always be 0.
+  nexSerial.listen();
+
+  // --- STEP 2: PRIORITY ONE - THE HANDSHAKE ---
+  // Immediately check for the 0x3B Preamble while nexSerial is active.
   processNexStar();
 
-  // 2. PRIORITY TWO: The Surgical Sip
-  // Aborts instantly if negotiationActive is true, protecting mount timing.
-  processGPS();
+  // --- STEP 3: THE SURGICAL SIP ---
+  // Only divert attention to GPS if the mount bus is silent and no conversation
+  // is currently active.
+  if (!negotiationActive && nexSerial.available() == 0)
+  {
+    gpsSerial.listen(); // Switch interrupt to GPS pins[cite: 14]
 
-  // 3. PRIORITY THREE: Processing & UI
-  // This gate protects the mission from any future "Heavy" tasks like OLED updates.
+    // Process a small chunk of GPS data[cite: 14]
+    processGPS();
+
+    // IMPORTANT: Return to NexStar immediately to minimize the blind spot[cite: 18]
+    nexSerial.listen();
+  }
+
+  // --- STEP 4: BACKGROUND PROCESSING ---
+  displayGPS(); // Minimal serial output[cite: 14, 17]
+
   if (gps.location.isUpdated() && !negotiationActive)
   {
-
-    // Build the packet using AstroLogic
     buildNEXPacket(
         packet,
         gps.location.lat(),
@@ -67,13 +77,9 @@ void loop() {
         gps.time.minute(),
         gps.time.second());
 
-    // Diagnostic Output
     debugPrintPacket();
-
-    // Future expansion: updateOLED() would go here.
   }
 }
-
 // ===== DIAGNOSTICS =====
 void debugPrintPacket()
 {

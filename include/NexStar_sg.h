@@ -36,7 +36,6 @@ uint8_t calculateChecksum(uint8_t *p, uint8_t len)
     return (uint8_t)((~sum + 1) & 0xFF);
 }
 
-
 void sendNexPacket(uint8_t *p, uint8_t len)
 {
     pinMode(NEX_TX_PIN, OUTPUT);
@@ -54,13 +53,13 @@ void processNexStar()
     {
         if (nexSerial.read() == PREAMBLE)
         {
-            negotiationActive = true; 
+            negotiationActive = true;
 
             uint8_t len = nexSerial.read();
             uint8_t src = nexSerial.read();
             (void)len; // Silence "unused" warning[cite: 4]
             (void)src; // Silence "unused" warning[cite: 4]
-            
+
             uint8_t dest = nexSerial.read();
 
             if (dest == ADDR_GPS)
@@ -69,7 +68,8 @@ void processNexStar()
 
                 if (cmd == CMD_GET_VER)
                 {
-                    auto nexStrike = []() {
+                    auto nexStrike = []()
+                    {
                         uint8_t verResp[] = {0x05, ADDR_GPS, ADDR_HC, CMD_GET_VER, 0x01, 0x02};
                         sendNexPacket(verResp, 6);
                     };
@@ -78,11 +78,9 @@ void processNexStar()
                     Serial.println(F(">>> v1.1.1: Event Strike (GET_VER) Captured on D7"));
                 }
             }
-            negotiationActive = false; 
+            negotiationActive = false;
         }
     }
 }
-
-
 
 #endif
