@@ -1,47 +1,52 @@
 #include <Arduino.h>
 #include <SoftwareSerial.h>
-#include "Hardware_Config.h"
+#include <TinyGPS++.h>
+#include "Hardware_config.h"
 #include "GPS_sg.h"
+#include "NexStar_sg.h"
 #include "AstroLogic.h"
 
-// ===== DEFINITIONS =====
+// ===== GLOBAL OBJECTS =====
 SoftwareSerial gpsSerial(GPS_RX_PIN, GPS_TX_PIN);
 SoftwareSerial nexSerial(NEX_RX_PIN, NEX_TX_PIN);
+TinyGPSPlus gps;
 
-uint8_t packet[15]; // 15byte storage container for astrologic
-
-// ===== GLOBAL VARIABLES =====
+// ===== GLOBAL STATE =====
+bool negotiationActive = false; // The v8.3.1 "Master Guard"
+uint8_t packet[15];             // Coordinate storage container
 
 // ===== PROTOTYPES =====
-void debugPrintPacket(); // This tells the compiler the function exists at the bottom
+void debugPrintPacket();
 
-void setup()
-{
+void setup() {
   Serial.begin(115200);
-  delay(2000);
-  Serial.println("--- STARGAZER OFFICE IS OPEN ---");
+  delay(1000);
+  Serial.println(F("--- STARGAZER OFFICE IS OPEN ---"));
 
-  gpsSerial.begin(9600);
-  nexSerial.begin(9600); // Ready for the future handshake
+  // Start the NexStar line (19200) and GPS line (9600 with Muzzle)
+  setupNexStar();
+  setupGPS(); 
 
-  setupGPS();
   pinMode(STATUS_LED, OUTPUT);
-
-  // Quick flash to show the "Office" is powered on
   digitalWrite(STATUS_LED, HIGH);
   delay(500);
   digitalWrite(STATUS_LED, LOW);
 }
-void loop()
-{
-  // Standard GPS feeding logic
-  while (gpsSerial.available() > 0)
-  {
-    gps.encode(gpsSerial.read());
-  }
 
-  if (gps.location.isUpdated())
-  {
+void loop() {
+  // 1. PRIORITY ONE: The Handshake
+  // Immediately sets negotiationActive = true if a mount query is detected.
+  processNexStar(); 
+
+  // 2. PRIORITY TWO: The Surgical Sip
+  // Aborts instantly if negotiationActive is true, protecting mount timing.
+  processGPS(); 
+
+  // 3. PRIORITY THREE: Processing & UI
+  // This gate protects the mission from any future "Heavy" tasks like OLED updates.
+  if (gps.location.isUpdated() && !negotiationActive) {
+    
+    // Build the packet using AstroLogic
     buildNEXPacket(
         packet,
         gps.location.lat(),
@@ -50,25 +55,20 @@ void loop()
         gps.time.minute(),
         gps.time.second());
 
-    // SQUASHED ERROR: Serial1 is now nexSerial
-    nexSerial.write(packet, 15);
-
-    // This is our current priority:
+    // Diagnostic Output
     debugPrintPacket();
+    
+    // Future expansion: updateOLED() would go here.
   }
 }
 
-// ===== Diagnostics =====
-
-void debugPrintPacket()
-{
-  Serial.print("NEX Packet: ");
-  for (int i = 0; i < 15; i++)
-  {
-    if (packet[i] < 0x10)
-      Serial.print("0"); // Add leading zero for clean alignment
+// ===== DIAGNOSTICS =====
+void debugPrintPacket() {
+  Serial.print(F("NEX Output: "));
+  for (int i = 0; i < 15; i++) {
+    if (packet[i] < 0x10) Serial.print("0"); 
     Serial.print(packet[i], HEX);
     Serial.print(" ");
   }
-  Serial.println(); // New line for the next update
+  Serial.println();
 }
