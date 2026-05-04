@@ -23,6 +23,8 @@ void setup() {
   delay(1000);
   Serial.println(F("--- STARGAZER OFFICE IS OPEN ---"));
 
+  initSyncPin(); // (de)activate via diagnostics.h
+
   // Start the NexStar line (19200) and GPS line (9600 with Muzzle)
   setupNexStar();
   setupGPS(); 
@@ -34,7 +36,7 @@ void setup() {
 }
 
 void loop() {
-  displayGPS;
+  displayGPS();
   // 1. PRIORITY ONE: The Handshake
   // Immediately sets negotiationActive = true if a mount query is detected.
   processNexStar(); 

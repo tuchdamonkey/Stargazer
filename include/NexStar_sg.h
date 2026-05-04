@@ -5,6 +5,7 @@
 #include <SoftwareSerial.h>
 #include "Hardware_config.h"
 #include "AstroLogic.h"
+#include "Diagnostics.h"
 
 extern SoftwareSerial nexSerial;
 extern bool negotiationActive;
@@ -35,6 +36,7 @@ uint8_t calculateChecksum(uint8_t *p, uint8_t len)
     return (uint8_t)((~sum + 1) & 0xFF);
 }
 
+
 void sendNexPacket(uint8_t *p, uint8_t len)
 {
     pinMode(NEX_TX_PIN, OUTPUT);
@@ -46,17 +48,19 @@ void sendNexPacket(uint8_t *p, uint8_t len)
     pinMode(NEX_TX_PIN, INPUT);    // Return to high-impedance
     digitalWrite(NEX_TX_PIN, LOW); // explicit silence
 }
-
 void processNexStar()
 {
     if (nexSerial.available() > 0)
     {
-        negotiationActive = true; // Engage Master Guard
-
         if (nexSerial.read() == PREAMBLE)
         {
+            negotiationActive = true; 
+
             uint8_t len = nexSerial.read();
             uint8_t src = nexSerial.read();
+            (void)len; // Silence "unused" warning[cite: 4]
+            (void)src; // Silence "unused" warning[cite: 4]
+            
             uint8_t dest = nexSerial.read();
 
             if (dest == ADDR_GPS)
@@ -65,22 +69,20 @@ void processNexStar()
 
                 if (cmd == CMD_GET_VER)
                 {
-                    // Response: Len(5), Src(12), Dest(0D), Cmd(FE), Ver(01 02)
-                    uint8_t verResp[] = {0x05, ADDR_GPS, ADDR_HC, CMD_GET_VER, 0x01, 0x02};
-                    sendNexPacket(verResp, 6);
-                    Serial.println(">>> v1.1: Handshake Stage 1 Answered (GET_VER)");
+                    auto nexStrike = []() {
+                        uint8_t verResp[] = {0x05, ADDR_GPS, ADDR_HC, CMD_GET_VER, 0x01, 0x02};
+                        sendNexPacket(verResp, 6);
+                    };
+
+                    syncEventAnchor(nexStrike);
+                    Serial.println(F(">>> v1.1.1: Event Strike (GET_VER) Captured on D7"));
                 }
-                /*
-                else if (cmd == CMD_GET_LOC) {
-                    // TODO v1.1.1: Nashville coordinate hex math
-                }
-                else if (cmd == CMD_GET_TIME) {
-                    // TODO v1.1.1: GPS Time/Date relay
-                }
-                */
             }
+            negotiationActive = false; 
         }
-        negotiationActive = false; // Release Master Guard
     }
 }
+
+
+
 #endif
