@@ -34,6 +34,7 @@ void setup() {
 }
 
 void loop() {
+  displayGPS;
   // 1. PRIORITY ONE: The Handshake
   // Immediately sets negotiationActive = true if a mount query is detected.
   processNexStar(); 
