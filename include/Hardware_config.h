@@ -10,6 +10,8 @@
 #define NEX_RX_PIN 4  // Vetted: Hardware Serial RX
 
 // --- System Indicators ---
-#define STATUS_LED 13 // Built-in Nano LED
+#define STATUS_LED 16 // Built-in Nano LED
+
+
 
 #endif

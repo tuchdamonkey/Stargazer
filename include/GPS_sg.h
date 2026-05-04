@@ -25,18 +25,16 @@ void muzzleGPS()
 
 void setupGPS()
 {
-  gpsSerial.begin(GPS_BAUD); // 9600 from Hardware_Config.h
+  gpsSerial.begin(9600); // 9600 from Hardware_Config.h
   muzzleGPS();               // Apply the "Mission Muzzle"
 }
 
 void processGPS()
 {
   // THE SURGICAL SIP: Only process GPS if we aren't in a NexStar handshake[cite: 1]
-  if (negotiationActive)
-    return;
+  if (negotiationActive) return;
 
-  while (gpsSerial.available() > 0)
-  {
+  while (gpsSerial.available() > 0) {
     gps.encode(gpsSerial.read());
   }
 }

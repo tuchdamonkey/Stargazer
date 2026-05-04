@@ -19,11 +19,12 @@ const uint8_t CMD_GET_VER = 0xFE;
 const uint8_t CMD_GET_LOC = 0x01;  // NexStar GPS Query is usually 0x01
 const uint8_t CMD_GET_TIME = 0x03; // Time/Date is usually 0x03[cite: 1]
 
-void setupNexStar()
-{
-    nexSerial.begin(19200); // Standard Aux Bus Speed[cite: 1]
-    pinMode(NEX_RX_PIN, INPUT_PULLUP);
-    pinMode(NEX_TX_PIN, INPUT); // Stay in "Ghost Mode" until response[cite: 1]
+void setupNexStar() {
+  nexSerial.begin(19200); 
+  
+  pinMode(NEX_RX_PIN, INPUT_PULLUP);
+  pinMode(NEX_TX_PIN, INPUT);
+  digitalWrite(NEX_TX_PIN, LOW);
 }
 
 // Helper to calculate checksum: Two's complement of the sum of bytes (excluding preamble)[cite: 1]
