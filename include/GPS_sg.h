@@ -6,48 +6,60 @@
 #include <TinyGPS++.h>
 #include "Hardware_Config.h"
 
-TinyGPSPlus gps;
+// Managed in NexStar_sgh.h or main.cpp
+extern bool negotiationActive;
+
+// Instances defined in main.cpp
+extern TinyGPSPlus gps;
 extern SoftwareSerial gpsSerial;
+
+void muzzleGPS()
+{
+  // v8.3.1 Strategy: Disable unnecessary NMEA sentences at the hardware level
+  // This reduces CPU load and prevents buffer overflows
+  gpsSerial.println(F("$PUBX,40,GLL,0,0,0,0*5C"));
+  gpsSerial.println(F("$PUBX,40,VTG,0,0,0,0*5E"));
+  gpsSerial.println(F("$PUBX,40,GSV,0,0,0,0*59"));
+  gpsSerial.println(F("$PUBX,40,GSA,0,0,0,0*4E"));
+}
 
 void setupGPS()
 {
-  // Most NEO-7M modules default to 9600 baud
-  gpsSerial.begin(9600);
+  gpsSerial.begin(GPS_BAUD); // 9600 from Hardware_Config.h
+  muzzleGPS();               // Apply the "Mission Muzzle"
 }
 
 void processGPS()
 {
+  // THE SURGICAL SIP: Only process GPS if we aren't in a NexStar handshake[cite: 1]
+  if (negotiationActive)
+    return;
+
   while (gpsSerial.available() > 0)
   {
     gps.encode(gpsSerial.read());
-    /* code */
   }
 }
 
 void displayGPS()
 {
-  // Check if location is valid AND if the data is less than 2 seconds old
+  // Only show/log coordinates if the data is fresh (under 2 seconds)[cite: 1]
   if (gps.location.isValid() && gps.location.age() < 2000)
   {
-    Serial.print("LAT: ");
+    Serial.print(F("LAT: "));
     Serial.println(gps.location.lat(), 6);
-    // ... rest of your display code ...
+    Serial.print(F("LON: "));
+    Serial.println(gps.location.lng(), 6);
   }
   else if (gps.location.age() > 5000)
   {
-    // If it's been more than 5 seconds, let's signal a warning
-    Serial.println("STALE GPS DATA - CHECK SIGNAL");
+    Serial.println(F("STALE GPS DATA - WAITING FOR FIX"));
   }
 }
 
 bool checkGPS()
 {
-  // This is the "Office Clerk" checking if there's mail
-  if (gpsSerial.available() > 0)
-  {
-    return true;
-  }
-  return false;
+  return (gpsSerial.available() > 0);
 }
 
 #endif
