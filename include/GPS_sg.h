@@ -13,16 +13,22 @@ extern volatile SystemState currentState;
 
 char readRossByte()
 {
-  // Wait for start bit to stabilize then jump to middle of Bit 0
-  // 104 (full bit) + 52 (half bit) - Nano overhead
-  delayMicroseconds(141);
+  // 1. Initial jump to Bit 0 center
+  delayMicroseconds(135); 
 
   char incomingByte = 0;
   for (int i = 0; i < 8; i++)
   {
+    // --- DIAGNOSTIC PING ---
+    PORTD |= (1 << PD7);  // Set D7 HIGH (Direct Port Manipulation is faster)
+    
     if (digitalRead(GPS_RX_PIN) == HIGH)
       incomingByte |= (1 << i);
-    delayMicroseconds(98); // Tuning for 9600 Baud
+      
+    PORTD &= ~(1 << PD7); // Set D7 LOW
+    // -----------------------
+
+    delayMicroseconds(94); 
   }
   return incomingByte;
 }
