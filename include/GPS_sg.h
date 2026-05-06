@@ -2,17 +2,34 @@
 #define GPS_SG_H
 
 #include <Arduino.h>
-#include <TinyGPS++.h>
 #include "Hardware_config.h"
 
-// --- Logic Constants ---
-const uint16_t bitPeriod = 104; // 9600 Baud (~104us)
-extern TinyGPSPlus gps;
-extern bool muzzleActive;
+// --- Global Buffer & State (Volatile is required for ISR safety) ---
+extern char goldenPacket[85];
+extern volatile int bufIndex;
+extern volatile SystemState currentState;
 
-// --- Manual Bit-Bang Transmitter (TX) ---
+// --- 1. The Core Utilities (Precision Timing) ---
+
+char readRossByte()
+{
+  // Wait for start bit to stabilize then jump to middle of Bit 0
+  // 104 (full bit) + 52 (half bit) - Nano overhead
+  delayMicroseconds(141);
+
+  char incomingByte = 0;
+  for (int i = 0; i < 8; i++)
+  {
+    if (digitalRead(GPS_RX_PIN) == HIGH)
+      incomingByte |= (1 << i);
+    delayMicroseconds(98); // Tuning for 9600 Baud
+  }
+  return incomingByte;
+}
+
 void rossWrite(char c)
 {
+  const uint16_t bitPeriod = 104;
   digitalWrite(GPS_TX_PIN, LOW); // Start Bit
   delayMicroseconds(bitPeriod);
   for (int i = 0; i < 8; i++)
@@ -28,68 +45,79 @@ void rossPrint(const char *str)
 {
   while (*str)
     rossWrite(*str++);
-  rossWrite('\r');
-  rossWrite('\n');
 }
 
-// --- Manual Bit-Bang Receiver (RX) ---
-char readRossByte() {
-    uint32_t startWait = micros();
-    while (digitalRead(GPS_RX_PIN) == HIGH) {
-        if (micros() - startWait > 50000) return 0; 
-    }
+// --- 2. The Bridge-Guard Filter ---
 
-    // TIGHTENED ALIGNMENT
-    // We wait for the start bit, then jump to the middle of Bit 0.
-    // 104 (full bit) + 52 (half bit) - 15 (Nano processing overhead)
-    delayMicroseconds(141); 
-
-    char incomingByte = 0;
-    for (int i = 0; i < 8; i++) {
-        if (digitalRead(GPS_RX_PIN) == HIGH) incomingByte |= (1 << i);
-        
-        // Subtract more for the loop and digitalRead overhead
-        delayMicroseconds(98); 
-    }
-    // No need to wait for the stop bit here, let the next loop handle the wait
-    return incomingByte;
-}
-
-// --- Lifecycle Functions ---
-void setupGPS()
+void processGPSByte(char c)
 {
-  pinMode(GPS_RX_PIN, INPUT);
-  pinMode(GPS_TX_PIN, OUTPUT);
-  digitalWrite(GPS_TX_PIN, HIGH); // Idle High
-}
-
-void muzzleGPS(bool closed)
-{
-  muzzleActive = closed;
-  if (closed)
+  if (c == '$')
   {
-    rossPrint("$PUBX,40,GSA,0,0,0,0*4E");
-    rossPrint("$PUBX,40,GSV,0,0,0,0*59");
+    bufIndex = 0;
+  }
+
+  if (bufIndex < 84)
+  {
+    goldenPacket[bufIndex++] = c;
+    goldenPacket[bufIndex] = '\0';
+  }
+
+  // HEADER FILTER: Reject non-RMC/GGA sentences after first 6 chars
+  if (bufIndex == 6)
+  {
+    if (strstr(goldenPacket, "RMC") == NULL && strstr(goldenPacket, "GGA") == NULL)
+    {
+      bufIndex = 0;
+      currentState = STATE_IDLE;
+      return;
+    }
+  }
+
+  // END OF SENTENCE: Trigger validation
+  if (c == '\n')
+  {
+    currentState = STATE_VALIDATE;
   }
   else
   {
-    rossPrint("$PUBX,40,RMC,0,1,0,0*46");
-    rossPrint("$PUBX,40,GGA,0,1,0,0*5A");
+    // Continue acquiring bits until sentence is done
+    currentState = STATE_IDLE;
   }
 }
 
-void sipGPS(uint32_t charCount) {
-    if (muzzleActive) return;
+// --- 3. The Setup & Interrupt Architecture ---
 
-    // LEAN BYPASS: No library, no fancy parsing.
-    // Just grab bits and throw them at the Serial port.
-    for (uint32_t i = 0; i < charCount; i++) {
-        char c = readRossByte();
-        
-        if (c > 0) {
-            Serial.print(c);
-        }
-    }
+void setupGPS()
+{
+  pinMode(GPS_RX_PIN, INPUT_PULLUP);
+  pinMode(GPS_TX_PIN, OUTPUT);
+  digitalWrite(GPS_TX_PIN, HIGH);
+
+  // Initial hardware muzzle (UBX commands for NEO-7M)
+  rossPrint("$PUBX,40,GLL,0,0,0,0,0,0*5C\r\n");
+  rossPrint("$PUBX,40,GSA,0,0,0,0,0,0*4E\r\n");
+  rossPrint("$PUBX,40,GSV,0,0,0,0,0,0*59\r\n");
+  rossPrint("$PUBX,40,VTG,0,0,0,0,0,0*5E\r\n");
+  rossPrint("$PUBX,40,RMC,0,1,0,0,0,0*47\r\n");
+  rossPrint("$PUBX,40,GGA,0,1,0,0,0,0*5A\r\n");
+
+  // ENABLE PCINT (Pin Change Interrupt) for D3
+  cli();
+  PCICR |= (1 << PCIE2);    // Enable Port D interrupts
+  PCMSK2 |= (1 << PCINT19); // Trigger on Digital Pin 3
+  sei();
+
+  currentState = STATE_IDLE;
+}
+
+// THE SENTRY: This ISR catches the GPS talking in the background
+ISR(PCINT2_vect)
+{
+  // If the pin dropped LOW and we are IDLE, start bit detected
+  if (digitalRead(GPS_RX_PIN) == LOW && currentState == STATE_IDLE)
+  {
+    currentState = STATE_ACQUIRE;
+  }
 }
 
 #endif
