@@ -22,3 +22,30 @@
 * [git commit -m "..."] permanently saves the current state of code to local history with a note.
 * [git push] sends local snapshots to GitHub repository
 * [git log --oneline] quicklist of all previous saves
+* [git status] status of your files
+* [git reflog] shows the history of 'undo' actions
+* [git checkout (eg, main, feature-name)] takes you to the snapshot workspace you designate
+* [git restore -staged <file>...] use to unstage "git add . "
+
+
+
+// -- Branch --
+* [git branch] lists all branches, highlights the branch you are currently on.
+
+
+
+* [git checkout main] 1. step off the branch you intend to delete
+* [git pull origin main] 2. ensure local main matches what is on the remote server
+
+* [git branch -D branch-name] -D deletes the branch name, which you can list via 'git branch'
+
+* [git branch feature-name] creates new branch
+* [git checkout feature-name] switches the snapshot workspace to that branch
+* [git checkout -b feature-name] -b (branch), (feature-name) create the name of the branch, this command creates then takes you to the branch in command line
+
+* [git push origin <branch name>] this pushes the branch to github
+
+
+
+
+

@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <SoftwareSerial.h>
 #include <TinyGPS++.h>
 #include "Hardware_config.h"
 #include "GPS_sg.h"
@@ -41,45 +40,8 @@ void setup()
 
 void loop()
 {
-  // --- STEP 1: THE PRIMARY EAR ---
-  // Ensure the Nano is listening to the NexStar bus[cite: 14, 18].
-  // Without this, nexSerial.available() will always be 0.
-  nexSerial.listen();
-
-  // --- STEP 2: PRIORITY ONE - THE HANDSHAKE ---
-  // Immediately check for the 0x3B Preamble while nexSerial is active.
-  processNexStar();
-
-  // --- STEP 3: THE SURGICAL SIP ---
-  // Only divert attention to GPS if the mount bus is silent and no conversation
-  // is currently active.
-  if (!negotiationActive && nexSerial.available() == 0)
-  {
-    gpsSerial.listen(); // Switch interrupt to GPS pins[cite: 14]
-
-    // Process a small chunk of GPS data[cite: 14]
-    processGPS();
-
-    // IMPORTANT: Return to NexStar immediately to minimize the blind spot[cite: 18]
-    nexSerial.listen();
-  }
-
-  // --- STEP 4: BACKGROUND PROCESSING ---
-  displayGPS(); // Minimal serial output[cite: 14, 17]
-
-  if (gps.location.isUpdated() && !negotiationActive)
-  {
-    buildNEXPacket(
-        packet,
-        gps.location.lat(),
-        gps.location.lng(),
-        gps.time.hour(),
-        gps.time.minute(),
-        gps.time.second());
-
-    debugPrintPacket();
-  }
 }
+
 // ===== DIAGNOSTICS =====
 void debugPrintPacket()
 {
