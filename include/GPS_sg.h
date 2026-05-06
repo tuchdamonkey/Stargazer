@@ -4,11 +4,11 @@
 #include <Arduino.h>
 #include "Hardware_config.h"
 
-// Managed in main.cpp
 extern bool negotiationActive;
-
-// Internal Ross/Soss state
 bool muzzleActive = true;
+
+// The 9600 baud "Bit-Time" in microseconds
+const uint16_t bitPeriod = 104; 
 
 void setupGPS() {
     pinMode(GPS_RX_PIN, INPUT);
@@ -19,17 +19,42 @@ void muzzleGPS(bool closed) {
     muzzleActive = closed;
 }
 
-// THE SIP: Manually polling the pin for a set window
-void sipGPS(uint32_t durationMs) {
+// Manual UART decoder (The "Soss" Engine)
+char readGpsChar() {
+    uint32_t startWait = micros();
+    // 1. Wait for Start Bit (LOW)
+    while (digitalRead(GPS_RX_PIN) == HIGH) {
+        if (micros() - startWait > 20000) return 0; // Timeout
+    }
+
+    // 2. Jump to the middle of the first data bit
+    delayMicroseconds(bitPeriod + (bitPeriod / 2));
+
+    char c = 0;
+    for (int i = 0; i < 8; i++) {
+        if (digitalRead(GPS_RX_PIN) == HIGH) {
+            c |= (1 << i);
+        }
+        delayMicroseconds(bitPeriod);
+    }
+    return c;
+}
+
+void sipGPS(uint16_t charCount) {
     if (muzzleActive) return;
 
-    uint32_t startTime = millis();
-    while (millis() - startTime < durationMs) {
-        // Raw logic read: 0 = Data, 1 = Idle (shown as '-')
-        if (digitalRead(GPS_RX_PIN) == LOW) Serial.print("0");
-        else Serial.print("-");
+    Serial.print(F("GPS SIP: "));
+    
+    // We grab exactly charCount characters
+    for (int i = 0; i < charCount; i++) {
+        char c = readGpsChar();
+        if (c > 31 && c < 127) { // Only print printable ASCII
+            Serial.print(c);
+        } else if (c == '\n' || c == '\r') {
+            Serial.print(" "); // Keep it on one line for the monitor
+        }
     }
-    Serial.println(); // Sip end
+    Serial.println(F(" [END]"));
 }
 
 #endif
