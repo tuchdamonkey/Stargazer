@@ -2,62 +2,51 @@
 #define GPS_SG_H
 
 #include <Arduino.h>
-#include <TinyGPS++.h>
 #include "Hardware_Config.h"
 
-// Managed in NexStar_sgh.h or main.cpp
+// We'll keep these variables for the rest of the system to see
 extern bool negotiationActive;
 
-// Instances defined in main.cpp
-extern TinyGPSPlus gps;
-
-void muzzleGPS()
-{
-  // v8.3.1 Strategy: Disable unnecessary NMEA sentences at the hardware level
-  // This reduces CPU load and prevents buffer overflows
-  gpsSerial.println(F("$PUBX,40,GLL,0,0,0,0*5C"));
-  gpsSerial.println(F("$PUBX,40,VTG,0,0,0,0*5E"));
-  gpsSerial.println(F("$PUBX,40,GSV,0,0,0,0*59"));
-  gpsSerial.println(F("$PUBX,40,GSA,0,0,0,0*4E"));
-}
+// The Ross/Soss "Gatekeeper"
+bool muzzleActive = true;
 
 void setupGPS()
 {
-  gpsSerial.begin(9600); // 9600 from Hardware_Config.h
-  muzzleGPS();           // Apply the "Mission Muzzle"
+  // We define the pin as an input, but we don't attach a library to it.
+  pinMode(GPS_RX_PIN, INPUT);
+  muzzleActive = true;
 }
 
-void processGPS()
+void muzzleGPS(bool closed)
 {
-  // THE SURGICAL SIP: Only process GPS if we aren't in a NexStar handshake[cite: 1]
-  if (negotiationActive)
+  muzzleActive = closed;
+}
+
+// This is the "Ross/Soss" engine for verification
+void sipGPS(uint32_t durationMs)
+{
+  // If the muzzle is on, we don't even look at the pin.
+  // This is the 'Silence' that protects the NexStar handshake.
+  if (muzzleActive)
     return;
 
-  while (gpsSerial.available() > 0)
-  {
-    gps.encode(gpsSerial.read());
-  }
-}
+  uint32_t startTime = millis();
 
-void displayGPS()
-{
-  // Only show/log coordinates if the data is fresh (under 2 seconds)[cite: 1]
-  if (gps.location.isValid() && gps.location.age() < 2000)
+  // While our "sip" window is open...
+  while (millis() - startTime < durationMs)
   {
-    Serial.print(F("LAT: "));
-    Serial.println(gps.location.lat(), 6);
-    Serial.print(F("LON: "));
-    Serial.println(gps.location.lng(), 6);
+    // We read the RAW logic state of the pin.
+    // 0 (LOW) = Start bit or Data. 1 (HIGH) = Idle.
+    if (digitalRead(GPS_RX_PIN) == LOW)
+    {
+      Serial.print("0");
+    }
+    else
+    {
+      Serial.print("-"); // Using a dash for '1' makes it easier to see data pulses
+    }
   }
-  else if (gps.location.age() > 5000)
-  {
-    Serial.println(F("STALE GPS DATA - WAITING FOR FIX"));
-  }
-}
-
-bool checkGPS()
-{
-  return (gpsSerial.available() > 0);
+  Serial.println(); // Sip complete
 }
 
 #endif
