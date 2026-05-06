@@ -26,6 +26,7 @@
 * [git reflog] shows the history of 'undo' actions
 * [git checkout (eg, main, feature-name)] takes you to the snapshot workspace you designate
 * [git restore -staged <file>...] use to unstage "git add . "
+* [git commit --amend -m "Your new, descriptive message here"] good commit, but wrong message
 
 
 

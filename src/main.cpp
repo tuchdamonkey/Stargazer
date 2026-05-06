@@ -3,6 +3,7 @@
 #include "Hardware_config.h"
 #include "GPS_sg.h"
 
+
 // --- THE FIX: DEFINITIONS (No 'extern' here) ---
 TinyGPSPlus gps;          // The physical parser object
 bool muzzleActive = true; // The physical state flag

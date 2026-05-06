@@ -10,8 +10,8 @@
 #define NEX_RX_PIN 4 // Vetted: Hardware Serial RX
 
 // --- System Indicators ---
-#define STATUS_LED 16 // Built-in Nano LED
-#define STATUS_LED 15 // Built-in Nano LED
+#define STATUS_LED_RED 16 // Built-in Nano LED
+#define STATUS_LED_YEL 15 // Built-in Nano LED
 
 // --- Bridge-Guard States ---
 enum SystemState
@@ -22,6 +22,9 @@ enum SystemState
     STATE_RELAY     // Pushing "Golden Packet" to NexStar
 };
 
+// These tell other files that these variables exist somewhere else (in main.cpp)
 extern volatile SystemState currentState;
+extern volatile int bufIndex;
+extern char goldenPacket[85];
 
 #endif
