@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 #include "Hardware_config.h"
-#include  "Diagnostics.h"
+#include "Diagnostics.h"
 
 // --- Global Buffer & State (Volatile is required for ISR safety) ---
 extern char goldenPacket[85];
@@ -14,23 +14,31 @@ extern volatile SystemState currentState;
 
 char readRossByte()
 {
-  delayMicroseconds(135); // Initial jump to bit 0
+  // 1. Pause the world so timing is perfect
+  noInterrupts();
+
+  delayMicroseconds(146); // Using your calibrated jump
 
   char incomingByte = 0;
   for (int i = 0; i < 8; i++)
   {
-
-    SYNC_HIGH(); // Start of the "shutter" click
+    SYNC_HIGH();
 
     if (digitalRead(GPS_RX_PIN) == HIGH)
     {
       incomingByte |= (1 << i);
     }
 
-    SYNC_LOW(); // End of the "shutter" click
+    SYNC_LOW();
 
-    delayMicroseconds(94);
+    // We use a slightly tighter delay because
+    // digitalRead and SYNC_HIGH/LOW take ~5-6us total
+    delayMicroseconds(98);
   }
+
+  // 2. Resume the world
+  interrupts();
+
   return incomingByte;
 }
 
