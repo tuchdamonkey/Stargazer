@@ -3,24 +3,18 @@
 
 #include <Arduino.h>
 
-#define SYNC_PIN 7 
+/**
+ * Diagnostics.h
+ *
+ * D7 is the SYNC pin (Hardwired to Diagnostic Port).
+ * This pin is Bit 7 of Port D.
+ */
 
-// ACTIVATE THIS MODE FOR THE STRIKE
-#define SYNC_MODE_EVENT 
+// Initialize D7 as output by setting Bit 7 of the Data Direction Register
+#define INIT_DIAGNOSTICS() (DDRD |= (1 << 7))
 
-void initSyncPin() {
-    pinMode(SYNC_PIN, OUTPUT);
-    digitalWrite(SYNC_PIN, LOW); // Forces LOW to confirm silence on power-up
-}
-
-inline void syncEventAnchor(void (*logicPayload)()) {
-  #ifdef SYNC_MODE_EVENT
-    digitalWrite(SYNC_PIN, HIGH); // Signal start of critical window
-    if (logicPayload) {
-        logicPayload(); // Execute the actual packet transmission[cite: 3]
-    }
-    digitalWrite(SYNC_PIN, LOW);  // Signal completion[cite: 3]
-  #endif
-}
+// Direct Port Manipulation for zero-latency toggling
+#define SYNC_HIGH() (PORTD |= (1 << 7)) // low-level equivalent of pinMode(7, OUTPUT)
+#define SYNC_LOW() (PORTD &= ~(1 << 7)) // low-level equivalent of digitalWrite(7, HIGH)
 
 #endif

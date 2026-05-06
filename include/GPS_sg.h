@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include "Hardware_config.h"
+#include  "Diagnostics.h"
 
 // --- Global Buffer & State (Volatile is required for ISR safety) ---
 extern char goldenPacket[85];
@@ -13,22 +14,22 @@ extern volatile SystemState currentState;
 
 char readRossByte()
 {
-  // 1. Initial jump to Bit 0 center
-  delayMicroseconds(135); 
+  delayMicroseconds(135); // Initial jump to bit 0
 
   char incomingByte = 0;
   for (int i = 0; i < 8; i++)
   {
-    // --- DIAGNOSTIC PING ---
-    PORTD |= (1 << PD7);  // Set D7 HIGH (Direct Port Manipulation is faster)
-    
-    if (digitalRead(GPS_RX_PIN) == HIGH)
-      incomingByte |= (1 << i);
-      
-    PORTD &= ~(1 << PD7); // Set D7 LOW
-    // -----------------------
 
-    delayMicroseconds(94); 
+    SYNC_HIGH(); // Start of the "shutter" click
+
+    if (digitalRead(GPS_RX_PIN) == HIGH)
+    {
+      incomingByte |= (1 << i);
+    }
+
+    SYNC_LOW(); // End of the "shutter" click
+
+    delayMicroseconds(94);
   }
   return incomingByte;
 }

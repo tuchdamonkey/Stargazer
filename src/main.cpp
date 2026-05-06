@@ -2,6 +2,7 @@
 #include <TinyGPS++.h>
 #include "Hardware_config.h"
 #include "GPS_sg.h"
+#include "Diagnostics.h"
 
 // --- Bridge-Guard Physical Memory Definitions ---
 // This is where the 'extern' promises from the headers are fulfilled.
@@ -25,6 +26,9 @@ void setup()
   Serial.begin(115200);
   setupGPS();
   Serial.println(F("--- StarGazer v1.0: Ross/Soss Stage 1 ---"));
+
+  INIT_DIAGNOSTICS();
+
 }
 
 void loop()
