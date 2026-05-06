@@ -2,7 +2,6 @@
 #define GPS_SG_H
 
 #include <Arduino.h>
-#include <SoftwareSerial.h>
 #include <TinyGPS++.h>
 #include "Hardware_Config.h"
 
@@ -11,7 +10,6 @@ extern bool negotiationActive;
 
 // Instances defined in main.cpp
 extern TinyGPSPlus gps;
-extern SoftwareSerial gpsSerial;
 
 void muzzleGPS()
 {
@@ -26,15 +24,17 @@ void muzzleGPS()
 void setupGPS()
 {
   gpsSerial.begin(9600); // 9600 from Hardware_Config.h
-  muzzleGPS();               // Apply the "Mission Muzzle"
+  muzzleGPS();           // Apply the "Mission Muzzle"
 }
 
 void processGPS()
 {
   // THE SURGICAL SIP: Only process GPS if we aren't in a NexStar handshake[cite: 1]
-  if (negotiationActive) return;
+  if (negotiationActive)
+    return;
 
-  while (gpsSerial.available() > 0) {
+  while (gpsSerial.available() > 0)
+  {
     gps.encode(gpsSerial.read());
   }
 }

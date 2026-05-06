@@ -2,12 +2,10 @@
 #define NEXSTAR_SG_H
 
 #include <Arduino.h>
-#include <SoftwareSerial.h>
 #include "Hardware_config.h"
 #include "AstroLogic.h"
 #include "Diagnostics.h"
 
-extern SoftwareSerial nexSerial;
 extern bool negotiationActive;
 
 // --- AUX BUS PROTOCOL CONSTANTS ---
