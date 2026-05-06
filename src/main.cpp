@@ -1,31 +1,31 @@
 #include <Arduino.h>
+#include <TinyGPS++.h>
 #include "Hardware_config.h"
 #include "GPS_sg.h"
 
-bool negotiationActive = false; // Start with GPS focus
-unsigned long lastSip = 0;
-const int sipInterval = 3000; // Sip every 3 seconds
+// --- THE FIX: DEFINITIONS (No 'extern' here) ---
+TinyGPSPlus gps;          // The physical parser object
+bool muzzleActive = true; // The physical state flag
+bool negotiationActive = false; 
 
-void setup()
-{
-  Serial.begin(115200); // Speed this up!
+unsigned long lastSip = 0;
+const int sipInterval = 3000; 
+
+void setup() {
+  Serial.begin(115200); 
   setupGPS();
-  Serial.println("--- StarGazer v1.0: Ross/Soss Stage 1 ---");
+  Serial.println(F("--- StarGazer v1.0: Ross/Soss Stage 1 ---"));
 }
 
-void loop()
-{
-  // Stage 1 Agenda: Verify the GPS 'Ticking'
-  if (millis() - lastSip >= sipInterval)
-  {
+void loop() {
+  if (millis() - lastSip >= sipInterval) {
+    muzzleGPS(false); 
+    Serial.println(F("[GATE OPEN - SEARCHING...]"));
 
-    Serial.println("[GATE OPEN]");
-    muzzleGPS(false); // Open the ear
+    sipGPS(80); 
 
-    sipGPS(200); // 200ms Sip (enough for a chunk of NMEA)
-
-    muzzleGPS(true); // Close the ear
-    Serial.println("[GATE CLOSED]");
+    muzzleGPS(true); 
+    Serial.println(F("[GATE CLOSED]"));
 
     lastSip = millis();
   }
