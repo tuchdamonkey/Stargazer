@@ -2,51 +2,34 @@
 #define GPS_SG_H
 
 #include <Arduino.h>
-#include "Hardware_Config.h"
+#include "Hardware_config.h"
 
-// We'll keep these variables for the rest of the system to see
+// Managed in main.cpp
 extern bool negotiationActive;
 
-// The Ross/Soss "Gatekeeper"
+// Internal Ross/Soss state
 bool muzzleActive = true;
 
-void setupGPS()
-{
-  // We define the pin as an input, but we don't attach a library to it.
-  pinMode(GPS_RX_PIN, INPUT);
-  muzzleActive = true;
+void setupGPS() {
+    pinMode(GPS_RX_PIN, INPUT);
+    muzzleActive = true; 
 }
 
-void muzzleGPS(bool closed)
-{
-  muzzleActive = closed;
+void muzzleGPS(bool closed) {
+    muzzleActive = closed;
 }
 
-// This is the "Ross/Soss" engine for verification
-void sipGPS(uint32_t durationMs)
-{
-  // If the muzzle is on, we don't even look at the pin.
-  // This is the 'Silence' that protects the NexStar handshake.
-  if (muzzleActive)
-    return;
+// THE SIP: Manually polling the pin for a set window
+void sipGPS(uint32_t durationMs) {
+    if (muzzleActive) return;
 
-  uint32_t startTime = millis();
-
-  // While our "sip" window is open...
-  while (millis() - startTime < durationMs)
-  {
-    // We read the RAW logic state of the pin.
-    // 0 (LOW) = Start bit or Data. 1 (HIGH) = Idle.
-    if (digitalRead(GPS_RX_PIN) == LOW)
-    {
-      Serial.print("0");
+    uint32_t startTime = millis();
+    while (millis() - startTime < durationMs) {
+        // Raw logic read: 0 = Data, 1 = Idle (shown as '-')
+        if (digitalRead(GPS_RX_PIN) == LOW) Serial.print("0");
+        else Serial.print("-");
     }
-    else
-    {
-      Serial.print("-"); // Using a dash for '1' makes it easier to see data pulses
-    }
-  }
-  Serial.println(); // Sip complete
+    Serial.println(); // Sip end
 }
 
 #endif
