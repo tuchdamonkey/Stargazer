@@ -68,7 +68,7 @@ void processGPSByte(char c)
     if (strstr(goldenPacket, "RMC") == NULL && strstr(goldenPacket, "GGA") == NULL)
     {
       bufIndex = 0;
-      currentState = STATE_IDLE;
+      currentState = STATE_IDLE; // Kill the sentence early
       return;
     }
   }
@@ -80,7 +80,8 @@ void processGPSByte(char c)
   }
   else
   {
-    // Continue acquiring bits until sentence is done
+    // STAGE 2 FIX: Stay in IDLE while waiting for the NEXT character's start bit.
+    // The ISR will flip us back to ACQUIRE when the next byte starts falling.
     currentState = STATE_IDLE;
   }
 }
