@@ -6,27 +6,54 @@
 // --- THE FIX: DEFINITIONS (No 'extern' here) ---
 TinyGPSPlus gps;          // The physical parser object
 bool muzzleActive = true; // The physical state flag
-bool negotiationActive = false; 
+bool negotiationActive = false;
 
 unsigned long lastSip = 0;
-const int sipInterval = 3000; 
+const int sipInterval = 3000;
 
-void setup() {
-  Serial.begin(115200); 
+void setup()
+{
+  Serial.begin(115200);
   setupGPS();
   Serial.println(F("--- StarGazer v1.0: Ross/Soss Stage 1 ---"));
 }
 
-void loop() {
-  if (millis() - lastSip >= sipInterval) {
-    muzzleGPS(false); 
-    Serial.println(F("[GATE OPEN - SEARCHING...]"));
+void loop()
+{
+  switch (currentState)
+  {
 
-    sipGPS(80); 
+  case STATE_IDLE:
+    // The Nano is chilling. PCINT is watching the pin.
+    // This is where you'd put your "modest UI" code later.
+    break;
 
-    muzzleGPS(true); 
-    Serial.println(F("[GATE CLOSED]"));
+  case STATE_ACQUIRE:
+    // A start bit was detected! Now we perform one
+    // precision bit-bang read to get the character.
+    char c = readRossByte();
+    processIncomingByte(c);
+    break;
 
-    lastSip = millis();
+  case STATE_VALIDATE:
+    if (verifyChecksum(goldenPacket))
+    {
+      packetReady = true;
+      currentState = STATE_RELAY;
+    }
+    else
+    {
+      currentState = STATE_IDLE;
+    }
+    break;
+
+  case STATE_RELAY:
+    if (nexStarIsReady())
+    {
+      relayToNexStar(goldenPacket);
+      packetReady = false;
+      currentState = STATE_IDLE;
+    }
+    break;
   }
 }
