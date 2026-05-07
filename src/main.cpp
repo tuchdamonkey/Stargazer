@@ -37,7 +37,7 @@ void loop()
   captureGpsBurst();
 
   // 2. THE 10s PORTHOLE (The Safe Zone)
-  if (millis() - lastCarryTime >= carryInterval)
+  if (millis() - lastCarryTime >= sipInterval)
   {
     SYNC_HIGH(); // D7 Pulse: Start Processing
 
