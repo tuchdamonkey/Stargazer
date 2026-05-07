@@ -5,10 +5,54 @@
 #include "Hardware_config.h"
 #include "Diagnostics.h"
 
+#define SILO_SIZE 160
+char gpsSilo[SILO_SIZE];
+int siloIndex = 0;
+bool siloReady = false;
+
+// We'll use this to keep track of the 10s Porthole
+unsigned long lastCarryTime = 0;
+const unsigned long carryInterval = 10000;
+
 // --- Global Buffer & State (Volatile is required for ISR safety) ---
 extern char goldenPacket[85];
 extern volatile int bufIndex;
 extern volatile SystemState currentState;
+
+void captureGpsBurst()
+{
+  // Reset Silo
+  siloIndex = 0;
+  siloReady = false;
+  memset(gpsSilo, 0, SILO_SIZE);
+
+  // Vigilance: Wait for Start Bit
+  unsigned long startWait = millis();
+  while (digitalRead(GPS_RX_PIN) == HIGH)
+  {
+    if (millis() - startWait > 1500)
+      return;
+
+    // Potential NEX check would live here
+  }
+
+  // Atomic Fill
+  while (siloIndex < SILO_SIZE)
+  {
+    char c = readRossByte(); // From your validated timing code
+    gpsSilo[siloIndex++] = c;
+
+    // Diagnostic toggle on D7
+    toggleDiagnostic();
+
+    // End of burst detection
+    if (c == '\n' && siloIndex > 100)
+    {
+      siloReady = true;
+      break;
+    }
+  }
+}
 
 // --- 1. The Core Utilities (Precision Timing) ---
 
