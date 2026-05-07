@@ -3,8 +3,8 @@
 
 #include <Arduino.h>
 #include "Hardware_config.h"
-#include "custom_serial/ross.h"
-#include "custom_serial/soss.h"
+#include "ross.h"
+#include "soss.h"
 #include "AstroLogic.h"
 #include "Diagnostics.h"
 
@@ -98,6 +98,10 @@ void sendNexPacket(uint8_t *p, uint8_t len)
     pinMode(NEX_TX_PIN, INPUT);
     digitalWrite(NEX_TX_PIN, LOW);
 }
+
+// --- Diagnostics Bridge ---
+// This tells NexStar_sg that the D7 sync pulse function exists elsewhere
+void syncEventAnchor(void (*func)());
 
 void processNexStar()
 {

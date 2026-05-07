@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <TinyGPS++.h>
-#include "custom_serial/ross.h"
-#include "custom_serial/soss.h"
+#include "ross.h"
+#include "soss.h"
 #include "Hardware_config.h"
 #include "AstroLogic.h"
 #include "Diagnostics.h"
