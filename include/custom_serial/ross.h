@@ -29,15 +29,15 @@ The latest version of this library can always be found at
 http://arduiniana.org.
 */
 
-#ifndef ross_h
-#define ross_h
+#ifndef ROSS_H
+#define ROSS_H
 
 #include <inttypes.h>
 #include <Stream.h>
 
 /******************************************************************************
-* Definitions
-******************************************************************************/
+ * Definitions
+ ******************************************************************************/
 
 #define _SS_MAX_RX_BUFF 64 // RX buffer size
 #ifndef GCC_VERSION
@@ -59,8 +59,8 @@ private:
 	uint16_t _rx_delay_stopbit;
 	uint16_t _tx_delay;
 
-	uint16_t _buffer_overflow: 1;
-	uint16_t _inverse_logic: 1;
+	uint16_t _buffer_overflow : 1;
+	uint16_t _inverse_logic : 1;
 
 	// static data
 	static char _receive_buffer[_SS_MAX_RX_BUFF];
@@ -71,8 +71,8 @@ private:
 	// private methods
 	void recv();
 	uint8_t rx_pin_read();
-	//void tx_pin_write(uint8_t pin_state);
-	//void setTX(uint8_t transmitPin);
+	// void tx_pin_write(uint8_t pin_state);
+	// void setTX(uint8_t transmitPin);
 	void setRX(uint8_t receivePin);
 
 	// private static method for timing
@@ -86,7 +86,12 @@ public:
 	bool listen();
 	void end();
 	bool isListening() { return this == active_object; }
-	bool overflow() { bool ret = _buffer_overflow; _buffer_overflow = false; return ret; }
+	bool overflow()
+	{
+		bool ret = _buffer_overflow;
+		_buffer_overflow = false;
+		return ret;
+	}
 	int peek();
 
 	virtual size_t write(uint8_t byte);

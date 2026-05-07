@@ -4,10 +4,12 @@
 #include <Arduino.h>
 #include "Hardware_config.h"
 #include "custom_serial/ross.h"
+#include "custom_serial/soss.h"
 #include "AstroLogic.h"
 #include "Diagnostics.h"
 
 extern ross nexSerial;
+extern soss nexTalker;
 extern bool negotiationActive;
 
 // --- AUX BUS PROTOCOL CONSTANTS ---
@@ -81,14 +83,22 @@ uint8_t calculateChecksum(uint8_t *p, uint8_t len)
 void sendNexPacket(uint8_t *p, uint8_t len)
 {
     pinMode(NEX_TX_PIN, OUTPUT);
-    nexSerial.write(PREAMBLE);
-    nexSerial.write(p, len);
+
+    // USE nexTalker (soss) for Transmitting
+    nexTalker.write(PREAMBLE);
+    for (uint8_t i = 0; i < len; i++)
+    {
+        nexTalker.write(p[i]);
+    }
+
     uint8_t chk = calculateChecksum(p, len);
-    nexSerial.write(chk);
-    nexSerial.flush();
-    pinMode(NEX_TX_PIN, INPUT);    // Return to high-impedance
-    digitalWrite(NEX_TX_PIN, LOW); // explicit silence
+    nexTalker.write(chk);
+
+    // nexTalker (soss) handles the bit-timing for the output
+    pinMode(NEX_TX_PIN, INPUT);
+    digitalWrite(NEX_TX_PIN, LOW);
 }
+
 void processNexStar()
 {
     if (nexSerial.available() > 0)

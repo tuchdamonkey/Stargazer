@@ -34,14 +34,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 // oscilloscope or logic analyzer.  Beware: it also slightly modifies
 // the bit times, so don't rely on it too much at high baud rates
 
-
-
-
-//#define _DEBUG 0
-//#define _DEBUG_PIN1 11
-//#define _DEBUG_PIN2 13
+// #define _DEBUG 0
+// #define _DEBUG_PIN1 11
+// #define _DEBUG_PIN2 13
 //
-// Includes
+//  Includes
 //
 #include <avr/pgmspace.h>
 #include "Arduino.h"
@@ -62,22 +59,28 @@ typedef struct _DELAY_TABLE
 #if F_CPU == 16000000
 
 static const DELAY_TABLE PROGMEM table[] =
-{
-	//  baud    rxcenter   rxintra    rxstop    tx
-	/*	{ 115200,   1,         17,        17,       12,    },
-		{ 57600,    10,        37,        37,       33,    },
-		{ 38400,    25,        57,        57,       54,    },
-		{ 31250,    31,        70,        70,       68,    },
-		{ 28800,    34,        77,        77,       74,    },
-		*/
-	{ 19200,    54,        117,       117,      114,   }
-	/*,
-	{ 14400,    74,        156,       156,      153,   },
-	{ 9600,     114,       236,       236,      233,   },
-	{ 4800,     233,       474,       474,      471,   },
-	{ 2400,     471,       950,       950,      947,   },
-	{ 1200,     947,       1902,      1902,     1899,  },
-	{ 300,      3804,      7617,      7617,     7614,  }, */
+	{
+		//  baud    rxcenter   rxintra    rxstop    tx
+		/*	{ 115200,   1,         17,        17,       12,    },
+			{ 57600,    10,        37,        37,       33,    },
+			{ 38400,    25,        57,        57,       54,    },
+			{ 31250,    31,        70,        70,       68,    },
+			{ 28800,    34,        77,        77,       74,    },
+			*/
+		{
+			19200,
+			54,
+			117,
+			117,
+			114,
+		}
+		/*,
+		{ 14400,    74,        156,       156,      153,   },
+		{ 9600,     114,       236,       236,      233,   },
+		{ 4800,     233,       474,       474,      471,   },
+		{ 2400,     471,       950,       950,      947,   },
+		{ 1200,     947,       1902,      1902,     1899,  },
+		{ 300,      3804,      7617,      7617,     7614,  }, */
 };
 
 const int XMIT_START_ADJUSTMENT = 5;
@@ -85,22 +88,28 @@ const int XMIT_START_ADJUSTMENT = 5;
 #elif F_CPU == 8000000
 
 static const DELAY_TABLE table[] PROGMEM =
-{
-	//  baud    rxcenter    rxintra    rxstop  tx
-	/*	{ 115200,   1,          5,         5,      3,      },
-		{ 57600,    1,          15,        15,     13,     },
-		{ 38400,    2,          25,        26,     23,     },
-		{ 31250,    7,          32,        33,     29,     },
-		{ 28800,    11,         35,        35,     32,     },
-		*/
-	{ 19200,    20,         55,        55,     52,     }
-	/*,
-	{ 14400,    30,         75,        75,     72,     },
-	{ 9600,     50,         114,       114,    112,    },
-	{ 4800,     110,        233,       233,    230,    },
-	{ 2400,     229,        472,       472,    469,    },
-	{ 1200,     467,        948,       948,    945,    },
-	{ 300,      1895,       3805,      3805,   3802,   }, */
+	{
+		//  baud    rxcenter    rxintra    rxstop  tx
+		/*	{ 115200,   1,          5,         5,      3,      },
+			{ 57600,    1,          15,        15,     13,     },
+			{ 38400,    2,          25,        26,     23,     },
+			{ 31250,    7,          32,        33,     29,     },
+			{ 28800,    11,         35,        35,     32,     },
+			*/
+		{
+			19200,
+			20,
+			55,
+			55,
+			52,
+		}
+		/*,
+		{ 14400,    30,         75,        75,     72,     },
+		{ 9600,     50,         114,       114,    112,    },
+		{ 4800,     110,        233,       233,    230,    },
+		{ 2400,     229,        472,       472,    469,    },
+		{ 1200,     467,        948,       948,    945,    },
+		{ 300,      1895,       3805,      3805,   3802,   }, */
 };
 
 const int XMIT_START_ADJUSTMENT = 4;
@@ -111,22 +120,28 @@ const int XMIT_START_ADJUSTMENT = 4;
 // Thanks, Garrett!
 
 static const DELAY_TABLE PROGMEM table[] =
-{
-	//  baud    rxcenter    rxintra    rxstop  tx
-	/*	{ 115200,   3,          21,        21,     18,     },
-		{ 57600,    20,         43,        43,     41,     },
-		{ 38400,    37,         73,        73,     70,     },
-		{ 31250,    45,         89,        89,     88,     },
-		{ 28800,    46,         98,        98,     95,     },
-		*/
-	{ 19200,    71,         148,       148,    145,    }
-	/*,
-	{ 14400,    96,         197,       197,    194,    },
-	{ 9600,     146,        297,       297,    294,    },
-	{ 4800,     296,        595,       595,    592,    },
-	{ 2400,     592,        1189,      1189,   1186,   },
-	{ 1200,     1187,       2379,      2379,   2376,   },
-	{ 300,      4759,       9523,      9523,   9520,   }, */
+	{
+		//  baud    rxcenter    rxintra    rxstop  tx
+		/*	{ 115200,   3,          21,        21,     18,     },
+			{ 57600,    20,         43,        43,     41,     },
+			{ 38400,    37,         73,        73,     70,     },
+			{ 31250,    45,         89,        89,     88,     },
+			{ 28800,    46,         98,        98,     95,     },
+			*/
+		{
+			19200,
+			71,
+			148,
+			148,
+			145,
+		}
+		/*,
+		{ 14400,    96,         197,       197,    194,    },
+		{ 9600,     146,        297,       297,    294,    },
+		{ 4800,     296,        595,       595,    592,    },
+		{ 2400,     592,        1189,      1189,   1186,   },
+		{ 1200,     1187,       2379,      2379,   2376,   },
+		{ 300,      4759,       9523,      9523,   9520,   }, */
 };
 
 const int XMIT_START_ADJUSTMENT = 6;
@@ -168,15 +183,13 @@ inline void soss::tunedDelay(uint16_t delay)
 	uint8_t tmp = 0;
 
 	asm volatile("sbiw    %0, 0x01 \n\t"
-	             "ldi %1, 0xFF \n\t"
-	             "cpi %A0, 0xFF \n\t"
-	             "cpc %B0, %1 \n\t"
-	             "brne .-10 \n\t"
-	             : "+r" (delay), "+a" (tmp)
-	             : "0" (delay)
-	            );
+				 "ldi %1, 0xFF \n\t"
+				 "cpi %A0, 0xFF \n\t"
+				 "cpc %B0, %1 \n\t"
+				 "brne .-10 \n\t"
+				 : "+r"(delay), "+a"(tmp)
+				 : "0"(delay));
 }
-
 
 void soss::tx_pin_write(uint8_t pin_state)
 {
@@ -186,17 +199,15 @@ void soss::tx_pin_write(uint8_t pin_state)
 		*_transmitPortRegister |= _transmitBitMask;
 }
 
-
 //
 // Constructor
 //
-soss::soss(uint8_t transmitPin, bool inverse_logic /* = false */, bool errors_ok /* = false */) :
-	_tx_delay(0),
-	_inverse_logic(inverse_logic),
-	_errors_ok(errors_ok)
+soss::soss(uint8_t transmitPin, bool inverse_logic /* = false */, bool errors_ok /* = false */) : _tx_delay(0),
+																								  _inverse_logic(inverse_logic),
+																								  _errors_ok(errors_ok)
 {
 	tx_pin = transmitPin;
-//	setTX(transmitPin);
+	//	setTX(transmitPin);
 }
 
 //
@@ -240,13 +251,11 @@ void soss::begin(long speed)
 	pinMode(_DEBUG_PIN1, OUTPUT);
 	pinMode(_DEBUG_PIN2, OUTPUT);
 #endif
-
 }
 
 void soss::end()
 {
 }
-
 
 // Read data from buffer
 int soss::read()
@@ -270,7 +279,7 @@ size_t soss::write(uint8_t b)
 	uint8_t oldSREG = SREG;
 	if (!_errors_ok)
 	{
-		cli();  // turn off interrupts for a clean txmit
+		cli(); // turn off interrupts for a clean txmit
 	}
 
 	// Write the start bit
@@ -282,7 +291,7 @@ size_t soss::write(uint8_t b)
 	{
 		for (byte mask = 0x01; mask; mask <<= 1)
 		{
-			if (b & mask) // choose bit
+			if (b & mask)		   // choose bit
 				tx_pin_write(LOW); // send 1
 			else
 				tx_pin_write(HIGH); // send 0
@@ -296,7 +305,7 @@ size_t soss::write(uint8_t b)
 	{
 		for (byte mask = 0x01; mask; mask <<= 1)
 		{
-			if (b & mask) // choose bit
+			if (b & mask)			// choose bit
 				tx_pin_write(HIGH); // send 1
 			else
 				tx_pin_write(LOW); // send 0
