@@ -14,6 +14,76 @@ bool siloReady = false;
 unsigned long lastCarryTime = 0;
 const unsigned long carryInterval = 10000;
 
+// --- Step 1: The Validation Filter ---
+bool isChecksumValid(char *sentence)
+{
+  char *start = strchr(sentence, '$');
+  char *end = strchr(sentence, '*');
+
+  if (!start || !end || end < start)
+    return false;
+
+  byte calculatedSum = 0;
+  for (char *p = start + 1; p < end; p++)
+  {
+    calculatedSum ^= *p;
+  }
+
+  char hex[3] = {*(end + 1), *(end + 2), '\0'};
+  byte providedSum = (byte)strtol(hex, NULL, 16);
+
+  return (calculatedSum == providedSum);
+}
+
+// --- Step 2: The Atomic Capture ---
+void captureGpsBurst()
+{
+  siloIndex = 0;
+  siloReady = false;
+  memset(gpsSilo, 0, SILO_SIZE);
+
+  unsigned long startWait = millis();
+  while (digitalRead(GPS_RX_PIN) == HIGH)
+  {
+    if (millis() - startWait > 1500)
+      return;
+    // Future NEX interrupt check here
+  }
+
+  while (siloIndex < SILO_SIZE)
+  {
+    char c = readRossByte();
+    gpsSilo[siloIndex++] = c;
+
+    toggleDiagnostic(); // D7 progress pulses
+
+    if (c == '\n' && siloIndex > 100)
+    {
+      char *rmcStart = strstr(gpsSilo, "$GPRMC");
+      char *ggaStart = strstr(gpsSilo, "$GPGGA");
+
+      if (rmcStart && ggaStart)
+      {
+        if (isChecksumValid(rmcStart) && isChecksumValid(ggaStart))
+        {
+          siloReady = true;
+        }
+        else
+        {
+          // Visual "Stutter" for checksum failure
+          for (int i = 0; i < 6; i++)
+          {
+            toggleDiagnostic();
+            delayMicroseconds(500);
+          }
+          siloReady = false;
+        }
+      }
+      break;
+    }
+  }
+}
+
 // --- Global Buffer & State (Volatile is required for ISR safety) ---
 extern char goldenPacket[85];
 extern volatile int bufIndex;
@@ -26,7 +96,7 @@ void captureGpsBurst()
   siloReady = false;
   memset(gpsSilo, 0, SILO_SIZE);
 
-  // Vigilance: Wait for Start Bit
+  // Vigilance: Wait for Start Bit (GPS RX goes LOW)
   unsigned long startWait = millis();
   while (digitalRead(GPS_RX_PIN) == HIGH)
   {
@@ -34,24 +104,67 @@ void captureGpsBurst()
       return;
 
     // Potential NEX check would live here
+    // if (Serial.available()) return;
   }
 
   // Atomic Fill
   while (siloIndex < SILO_SIZE)
   {
-    char c = readRossByte(); // From your validated timing code
+    char c = readRossByte(); // Your validated timing code
     gpsSilo[siloIndex++] = c;
 
-    // Diagnostic toggle on D7
+    // Diagnostic toggle on D7 - Physical progress bar
     toggleDiagnostic();
 
-    // End of burst detection
+    // End of burst detection (Look for the second newline)
     if (c == '\n' && siloIndex > 100)
     {
-      siloReady = true;
+      // --- THE VALIDATION GATE ---
+      // We look for the start of both expected sentences
+      char *rmcStart = strstr(gpsSilo, "$GPRMC");
+      char *ggaStart = strstr(gpsSilo, "$GPGGA");
+
+      if (rmcStart && ggaStart)
+      {
+        // Only set ready if BOTH checksums pass
+        if (isChecksumValid(rmcStart) && isChecksumValid(ggaStart))
+        {
+          siloReady = true;
+        }
+        else
+        {
+          // Checksum Fail: Quick D7 stutter for visual warning on LA
+          for (int i = 0; i < 6; i++)
+          {
+            toggleDiagnostic();
+            delayMicroseconds(500);
+          }
+          siloReady = false;
+        }
+      }
       break;
     }
   }
+}
+
+bool isChecksumValid(char *sentence)
+{
+  char *start = strchr(sentence, '$');
+  char *end = strchr(sentence, '*');
+
+  if (!start || !end || end < start)
+    return false;
+
+  byte calculatedSum = 0;
+  for (char *p = start + 1; p < end; p++)
+  {
+    calculatedSum ^= *p;
+  }
+
+  char hex[3] = {*(end + 1), *(end + 2), '\0'};
+  byte providedSum = (byte)strtol(hex, NULL, 16);
+
+  return (calculatedSum == providedSum);
 }
 
 // --- 1. The Core Utilities (Precision Timing) ---
