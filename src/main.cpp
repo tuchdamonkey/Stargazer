@@ -1,8 +1,8 @@
 #include <Arduino.h>
 #include <TinyGPS++.h>
 #include "Hardware_config.h"
-#include "GPS_sg.h"
 #include "Diagnostics.h"
+#include "GPS_sg.h"
 
 // --- Bridge-Guard Physical Memory Definitions ---
 // This is where the 'extern' promises from the headers are fulfilled.
@@ -28,45 +28,24 @@ void setup()
   Serial.println(F("--- StarGazer v1.0: Ross/Soss Stage 1 ---"));
 
   INIT_DIAGNOSTICS();
-
 }
 
 void loop()
 {
-  switch (currentState)
+  // 1. ATOMIC CAPTURE
+  captureGpsBurst();
+
+  // 2. THE 10s PORTHOLE
+  if (siloReady && (millis() - lastCarryTime >= carryInterval))
   {
+    SYNC_HIGH(); // This is your "Mark Carry Start"
 
-  case STATE_IDLE:
-    // The Nano is chilling. PCINT is watching the pin.
-    break;
+    Serial.println(F("--- [VALIDATED GPS DATA] ---"));
+    Serial.print(gpsSilo);
+    Serial.println(F("----------------------------"));
 
-  case STATE_ACQUIRE:
-  {
-    // Precision bit-bang read
-    char c = readRossByte();
-    processGPSByte(c); // Match the name in GPS_sg.h
-    break;
-  }
+    lastCarryTime = millis();
 
-  case STATE_VALIDATE:
-    // Checksum logic can be added to GPS_sg.h later
-    // For now, we assume if it hit '\n', it's a good packet.
-    packetReady = true;
-    currentState = STATE_RELAY;
-    break;
-
-  case STATE_RELAY:
-    // This is where NexStar_sg.h will plug in.
-    // For the first test, we just print to the PC.
-    Serial.print(F("Relaying: "));
-    Serial.println(goldenPacket);
-
-    packetReady = false;
-    currentState = STATE_IDLE;
-    break;
-
-  default:
-    currentState = STATE_IDLE;
-    break;
+    SYNC_LOW(); // This is your "Mark Carry End"
   }
 }
