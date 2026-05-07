@@ -18,6 +18,48 @@ const uint8_t CMD_GET_VER = 0xFE;
 const uint8_t CMD_GET_LOC = 0x01;  // Stage 2: Coordinates
 const uint8_t CMD_GET_TIME = 0x03; // Stage 3: Time/Date
 
+// --- STAGE 2: TRANSLATION & BUFFERING ---
+
+// Global buffer holding the last validated 3-byte coordinate translation.
+// This is the "Atomic Cache" the Nano serves when the HC requests data.
+static uint8_t nexPayload[3];
+
+/**
+ * Translate & Pack: The unified "Brain" of Stage 2.
+ * Converts GPS floats to 24-bit NexStar format and caches for instant delivery.
+ */
+inline void translateAndPack(float coord, bool isLongitude)
+{
+    // 1. Normalization (Western Hemisphere Check)
+    float normalizedCoord = coord;
+    if (isLongitude && coord < 0)
+    {
+        normalizedCoord += 360.0;
+    }
+
+    // 2. Scaling (The NEX Constant from AstroLogic.h)
+    uint32_t precise24bit = (uint32_t)(normalizedCoord * COORD_TO_24BIT);
+
+    // 3. Bit-Slicing (Splicing into High, Mid, Low bytes)
+    nexPayload[0] = (uint8_t)((precise24bit >> 16) & 0xFF);
+    nexPayload[1] = (uint8_t)((precise24bit >> 8) & 0xFF);
+    nexPayload[2] = (uint8_t)(precise24bit & 0xFF);
+
+    // 4. Data Scope (Serial verification for Ross/Soss validation)
+    Serial.print(F("[NEX_MATH] "));
+    Serial.print(isLongitude ? F("Lon: ") : F("Lat: "));
+    Serial.print(coord, 6);
+    Serial.print(F(" -> HEX: "));
+    for (int i = 0; i < 3; i++)
+    {
+        if (nexPayload[i] < 0x10)
+            Serial.print('0');
+        Serial.print(nexPayload[i], HEX);
+        Serial.print(' ');
+    }
+    Serial.println();
+}
+
 void setupNexStar()
 {
     nexSerial.begin(19200);
