@@ -2,7 +2,6 @@
 #define GPS_SG_H
 
 #include <Arduino.h>
-#include <TinyGPS++.h>
 #include "Hardware_config.h"
 #include "Diagnostics.h"
 
