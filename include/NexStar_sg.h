@@ -12,6 +12,7 @@
 extern ross nexSerial;
 extern soss nexTalker;
 extern bool negotiationActive;
+extern void syncEventAnchor(void (*func)());
 
 // --- AUX BUS PROTOCOL CONSTANTS ---
 const uint8_t PREAMBLE = 0x3B;
@@ -83,10 +84,6 @@ void sendNexPacket(uint8_t *p, uint8_t len)
     pinMode(NEX_TX_PIN, INPUT);
     digitalWrite(NEX_TX_PIN, LOW);
 }
-
-// --- Diagnostics Bridge ---
-// This tells NexStar_sg that the D7 sync pulse function exists elsewhere
-void syncEventAnchor(void (*func)());
 
 void processNexStar()
 {

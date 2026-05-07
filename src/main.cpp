@@ -75,17 +75,6 @@ void loop()
   processNexStar();
 } // <--- This was the "wall" causing the errors!
 
-// --- The Linker's Bridge ---
-void syncEventAnchor(void (*func)())
-{
-  if (func != nullptr)
-  {
-    SYNC_HIGH(); // Force High at the start of the bridge
-    func();      // Execute the NexStar packet send (the lambda)
-    SYNC_LOW();  // Force Low the MOMENT the work is done
-  }
-}
-
 //==================================================
 
 void syncEventAnchor(void (*func)())
