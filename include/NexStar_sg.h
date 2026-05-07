@@ -7,6 +7,7 @@
 #include "AstroLogic.h"
 #include "Diagnostics.h"
 
+extern ross nexSerial;
 extern bool negotiationActive;
 
 // --- AUX BUS PROTOCOL CONSTANTS ---

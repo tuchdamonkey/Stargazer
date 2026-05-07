@@ -1,7 +1,8 @@
 #include <Arduino.h>
 #include <TinyGPS++.h>
-#include "Hardware_config.h"
 #include "custom_serial/ross.h"
+#include "custom_serial/soss.h"
+#include "Hardware_config.h"
 #include "AstroLogic.h"
 #include "Diagnostics.h"
 #include "GPS_sg.h"
@@ -19,11 +20,14 @@ bool negotiationActive = false;
 unsigned long lastSip = 0;
 const int sipInterval = 3000;
 
-custom_serial nexSerial(NEX_RX_PIN, NEX_TX_PIN);
+ross nexSerial(NEX_RX_PIN);
+soss nexTalker(NEX_TX_PIN);
 
 void setup()
 {
   Serial.begin(115200);
+  nexSerial.begin(19200);
+  // nexTalker.begin(19200); // If soss has a begin
   setupGPS();
   Serial.println(F("--- StarGazer v1.0: Ross/Soss Stage 1 ---"));
 
