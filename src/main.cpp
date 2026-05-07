@@ -69,3 +69,11 @@ void loop()
   // 4. AUX BUS LISTENER: Ready to serve the cache
   processNexStar();
 }
+
+void syncEventAnchor(void (*func)())
+{
+  if (func != nullptr)
+  {
+    func(); // This executes the nexStrike lambda and triggers D7
+  }
+}
