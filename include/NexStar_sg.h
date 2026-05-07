@@ -113,6 +113,7 @@ void processNexStar()
                     {
                         uint8_t verResp[] = {0x05, ADDR_GPS, ADDR_HC, CMD_GET_VER, 0x01, 0x02};
                         sendNexPacket(verResp, 6);
+                        // NO SERIAL PRINTS HERE
                     };
 
                     syncEventAnchor(nexStrike);

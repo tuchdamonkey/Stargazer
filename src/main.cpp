@@ -39,21 +39,26 @@ void setup()
 void loop()
 {
   // 1. HIGHEST PRIORITY: Constant Background Siphon
-  // We empty the ross buffer before doing anything else
   captureGpsBurst();
+
+  // HEARTBEAT: Confirms the Nano is looping even without GPS lock
+  static unsigned long lastHeartbeat = 0;
+  if (millis() - lastHeartbeat > 5000)
+  {
+    Serial.println(F("BRAIN_CHECK: Looping..."));
+    lastHeartbeat = millis();
+  }
 
   // 2. THE EVENT TRIGGER: Only work when TinyGPS++ has a full lock
   if (gps.location.isUpdated())
   {
-    SYNC_HIGH(); // D7 HIGH: Nano is now "Thinking" (Translation Phase)
+    SYNC_HIGH(); // D7 HIGH: Nano is now "Thinking"
 
     // Perform the silent 24-bit math
-    // This updates the nexPayload cache instantly
     translateAndPack(gps.location.lat(), false);
     translateAndPack(gps.location.lng(), true);
 
-    // 3. THE STAND-IN REPORT: Minimalist verification
-    // This replaces the bulky Stage 2 prints
+    // 3. THE STAND-IN REPORT
     Serial.print(F("NEX_READY: "));
     for (int i = 0; i < 3; i++)
     {
@@ -63,17 +68,32 @@ void loop()
     }
     Serial.println();
 
-    SYNC_LOW(); // D7 LOW: Translation complete, back to vigilance
+    SYNC_LOW(); // D7 LOW: Translation complete
   }
 
   // 4. AUX BUS LISTENER: Ready to serve the cache
   processNexStar();
+} // <--- This was the "wall" causing the errors!
+
+// --- The Linker's Bridge ---
+void syncEventAnchor(void (*func)())
+{
+  if (func != nullptr)
+  {
+    SYNC_HIGH(); // Force High at the start of the bridge
+    func();      // Execute the NexStar packet send (the lambda)
+    SYNC_LOW();  // Force Low the MOMENT the work is done
+  }
 }
+
+//==================================================
 
 void syncEventAnchor(void (*func)())
 {
   if (func != nullptr)
   {
-    func(); // This executes the nexStrike lambda and triggers D7
+    SYNC_HIGH(); // Force High at the start of the bridge
+    func();      // Execute the NexStar packet send
+    SYNC_LOW();  // Force Low the MOMENT the work is done
   }
 }
