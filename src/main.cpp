@@ -36,16 +36,25 @@ void loop()
   captureGpsBurst();
 
   // 2. THE 10s PORTHOLE
-  if (siloReady && (millis() - lastCarryTime >= carryInterval))
+  if (millis() - lastCarryTime >= carryInterval)
   {
-    SYNC_HIGH(); // This is your "Mark Carry Start"
+    SYNC_HIGH();
 
-    Serial.println(F("--- [VALIDATED GPS DATA] ---"));
-    Serial.print(gpsSilo);
-    Serial.println(F("----------------------------"));
+    Serial.println(F("--- [DEBUG SILO DUMP] ---"));
+    if (siloReady)
+    {
+      Serial.println(F("STATUS: VALIDATED"));
+    }
+    else
+    {
+      Serial.println(F("STATUS: CHECKSUM FAIL OR INCOMPLETE"));
+    }
+
+    // Print the raw silo content regardless of the ready flag
+    Serial.println(gpsSilo);
+    Serial.println(F("-------------------------"));
 
     lastCarryTime = millis();
-
-    SYNC_LOW(); // This is your "Mark Carry End"
+    SYNC_LOW();
   }
 }
