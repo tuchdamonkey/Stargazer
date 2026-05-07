@@ -8,23 +8,68 @@
 #define COORD_TO_24BIT 46603.3777
 
 /**
+ * Pillar 1.5: The Translator
+ * Converts NMEA DDM (DDMM.MMMM) char array to Decimal Degrees float.
+ */
+float convertNMEAToDecimal(const char *raw, char dir)
+{
+    if (raw == nullptr || strlen(raw) < 5)
+        return 0.0;
+
+    // 1. Locate the decimal "anchor"
+    const char *dot = strchr(raw, '.');
+    if (dot == nullptr)
+        return 0.0;
+
+    // 2. The minutes always start 2 places before the dot
+    const char *minuteStart = dot - 2;
+
+    // 3. Extract Minutes (atof reads until it hits a non-numeric/null)
+    float mins = atof(minuteStart);
+
+    // 4. Extract Degrees
+    // We temporarily "truncate" the string to read only the degree part
+    char degBuf[5]; // Max 3 digits for Longitude (180) + null
+    int degLen = minuteStart - raw;
+    if (degLen > 4)
+        degLen = 4; // Safety clamp
+
+    strncpy(degBuf, raw, degLen);
+    degBuf[degLen] = '\0'; // Manual null termination
+    float degs = atof(degBuf);
+
+    // 5. Final Calculation
+    float decimalDegrees = degs + (mins / 60.0);
+
+    // 6. Hemisphere Correction
+    if (dir == 'S' || dir == 'W')
+    {
+        decimalDegrees *= -1.0;
+    }
+
+    return decimalDegrees;
+}
+
+/**
  * Assembles a NexStar GPS/Time Update Packet (0x3B Command)
  * Packet Structure: [3B] [Len] [Source] [Dest] [Cmd] [Payload...] [Checksum]
  */
-void buildNEXPacket(uint8_t *buf, double lat, double lon, uint8_t h, uint8_t m, uint8_t s) {
-    
+void buildNEXPacket(uint8_t *buf, double lat, double lon, uint8_t h, uint8_t m, uint8_t s)
+{
+
     // --- TOP LEVEL SANITIZATION ---
     // Nashville Fix: Normalize West to 0-360 range
-    if (lon < 0) {
-        lon += 360.0; 
+    if (lon < 0)
+    {
+        lon += 360.0;
     }
     // (Optional) If your mount expects 0-360 for Lat as well, you'd do it here.
 
     // 1. Preamble
     buf[0] = 0x3B;
-    
+
     // 2. Length (13 bytes follow this one)
-    buf[1] = 0x0D; 
+    buf[1] = 0x0D;
 
     // 3. Routing
     buf[2] = 0x0E; // Source: GPS
@@ -50,23 +95,26 @@ void buildNEXPacket(uint8_t *buf, double lat, double lon, uint8_t h, uint8_t m, 
 
     // 7. The Bodyguard (Checksum)
     uint16_t sum = 0;
-    for (uint8_t i = 1; i <= 13; i++) {
+    for (uint8_t i = 1; i <= 13; i++)
+    {
         sum += buf[i];
     }
-    buf[14] = (uint8_t)((-sum) & 0xFF); 
+    buf[14] = (uint8_t)((-sum) & 0xFF);
 }
 
 // We use macros or inline to save stack space
-inline void packNEXCoord(double coord, uint8_t &hi, uint8_t &mid, uint8_t &lo) {
-    if (coord < 0) coord += 360.0; 
+inline void packNEXCoord(double coord, uint8_t &hi, uint8_t &mid, uint8_t &lo)
+{
+    if (coord < 0)
+        coord += 360.0;
     uint32_t val = (uint32_t)(coord * COORD_TO_24BIT);
-    hi  = (val >> 16) & 0xFF;
+    hi = (val >> 16) & 0xFF;
     mid = (val >> 8) & 0xFF;
-    lo  =  val & 0xFF;
+    lo = val & 0xFF;
 }
 
 // Time is just a direct pass-through for NEX, no helper needed.
-// Use: packet[7] = gps.time.hour(); 
+// Use: packet[7] = gps.time.hour();
 
 /**
  * Pillar 3: Delivery (Checksum)
@@ -74,10 +122,12 @@ inline void packNEXCoord(double coord, uint8_t &hi, uint8_t &mid, uint8_t &lo) {
  * packet: the array of bytes
  * len: total length of the packet
  */
-uint8_t calculateNEXChecksum(uint8_t *packet, uint8_t len) {
+uint8_t calculateNEXChecksum(uint8_t *packet, uint8_t len)
+{
     uint16_t sum = 0;
     // Start at index 1 to skip the Preamble (0x3B)
-    for (uint8_t i = 1; i < len - 1; i++) {
+    for (uint8_t i = 1; i < len - 1; i++)
+    {
         sum += packet[i];
     }
     // Two's complement: sum the bytes, then take (0 - sum) & 0xFF
@@ -91,17 +141,18 @@ uint8_t calculateNEXChecksum(uint8_t *packet, uint8_t len) {
 /**
  * Narrates the outgoing hex for the logic analyzer/Serial Monitor.
  */
-void logHexPacket(const char* label, uint8_t* packet, uint8_t len) {
+void logHexPacket(const char *label, uint8_t *packet, uint8_t len)
+{
     Serial.print(label);
     Serial.print(": ");
-    for (uint8_t i = 0; i < len; i++) {
-        if (*(packet + i) < 0x10) Serial.print("0"); 
+    for (uint8_t i = 0; i < len; i++)
+    {
+        if (*(packet + i) < 0x10)
+            Serial.print("0");
         Serial.print(*(packet + i), HEX);
         Serial.print(" ");
     }
     Serial.println();
 }
-
-
 
 #endif
