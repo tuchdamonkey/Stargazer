@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include "Hardware_config.h"
+#include "custom_serial/ross.h"
 #include "AstroLogic.h"
 #include "Diagnostics.h"
 

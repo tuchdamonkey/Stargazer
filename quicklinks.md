@@ -46,6 +46,9 @@
 
 * [git push origin <branch name>] this pushes the branch to github
 
+* [git pull --rebase origin feature/ross-soss]  Instead of a "Merge" (which creates a messy extra commit just to join the lines), we will use Rebase. This tells Git: "Take my new local work, set it aside for a second, pull down the changes from GitHub, and then put my work back on top of them."
+
+* [git push -u origin feature/ross-soss] The -u stands for set-upstream. After you run that one time, Git will "remember" the connection. From then on, as long as you are on that branch, you can just type: [git push]
 
 
 
