@@ -8,6 +8,25 @@
 #define COORD_TO_24BIT 46603.3777
 
 /**
+ * Helper: Returns a pointer to the start of the Nth field in a comma-separated string.
+ * index: 0 for the header, 1 for the first data field, etc.
+ */
+const char *findField(const char *str, int index)
+{
+    int count = 0;
+    const char *p = str;
+    while (count < index)
+    {
+        p = strchr(p, ',');
+        if (!p)
+            return nullptr; // Field not found
+        p++;                // Move past the comma
+        count++;
+    }
+    return p;
+}
+
+/**
  * Pillar 1.5: The Translator
  * Converts NMEA DDM (DDMM.MMMM) char array to Decimal Degrees float.
  */

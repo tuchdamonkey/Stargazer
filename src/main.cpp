@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <TinyGPS++.h>
 #include "Hardware_config.h"
+#include "AstroLogic.h"
 #include "Diagnostics.h"
 #include "GPS_sg.h"
 
@@ -35,26 +36,50 @@ void loop()
   // 1. ATOMIC CAPTURE
   captureGpsBurst();
 
-  // 2. THE 10s PORTHOLE
+  // 2. THE 10s PORTHOLE (The Safe Zone)
   if (millis() - lastCarryTime >= carryInterval)
   {
-    SYNC_HIGH();
+    SYNC_HIGH(); // D7 Pulse: Start Processing
 
-    Serial.println(F("--- [DEBUG SILO DUMP] ---"));
+    Serial.println(F("\n--- [STAGE 1.5: TRANSLATION] ---"));
+
     if (siloReady)
     {
-      Serial.println(F("STATUS: VALIDATED"));
+      // 1. Locate the RMC sentence within the silo
+      char *rmc = strstr(gpsSilo, "$GPRMC");
+
+      if (rmc)
+      {
+        // 2. Slice the fields
+        const char *latStr = findField(rmc, 3);
+        const char *latDir = findField(rmc, 4);
+        const char *lonStr = findField(rmc, 5);
+        const char *lonDir = findField(rmc, 6);
+
+        // 3. Translate to Decimal Degrees
+        if (latStr && latDir && lonStr && lonDir)
+        {
+          float currentLat = convertNMEAToDecimal(latStr, latDir[0]);
+          float currentLon = convertNMEAToDecimal(lonStr, lonDir[0]);
+
+          // 4. Output results
+          Serial.print(F("GPS STATUS: VALIDATED\n"));
+          Serial.print(F("LAT: "));
+          Serial.println(currentLat, 6);
+          Serial.print(F("LON: "));
+          Serial.println(currentLon, 6);
+
+          // (Optional) Diagnostic: Print the raw coordinates we grabbed
+          // Serial.print(F("RAW: ")); Serial.println(latStr);
+        }
+      }
     }
     else
     {
-      Serial.println(F("STATUS: CHECKSUM FAIL OR INCOMPLETE"));
+      Serial.println(F("STATUS: SILO INCOMPLETE/CHECKSUM FAIL"));
     }
 
-    // Print the raw silo content regardless of the ready flag
-    Serial.println(gpsSilo);
-    Serial.println(F("-------------------------"));
-
     lastCarryTime = millis();
-    SYNC_LOW();
+    SYNC_LOW(); // D7 Pulse: End Processing
   }
 }
