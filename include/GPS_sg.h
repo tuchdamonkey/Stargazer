@@ -2,6 +2,7 @@
 #define GPS_SG_H
 
 #include <Arduino.h>
+#include <TinyGPS++.h>
 #include "Hardware_config.h"
 #include "Diagnostics.h"
 
@@ -17,6 +18,10 @@ const unsigned long carryInterval = 10000;
 extern char goldenPacket[85];
 extern volatile int bufIndex;
 extern volatile SystemState currentState;
+
+// === PROTOTYPES ===
+void setupGPS();
+void captureGpsBurst();
 
 // --- 1. THE BIT-READER (Resyncing on Every Byte) ---
 char readRossByte()

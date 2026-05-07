@@ -2,6 +2,7 @@
 #define NEXSTAR_SG_H
 
 #include <Arduino.h>
+#include <TinyGPS++.h>
 #include "Hardware_config.h"
 #include "ross.h"
 #include "soss.h"
@@ -34,34 +35,18 @@ static uint8_t nexPayload[3];
  */
 inline void translateAndPack(float coord, bool isLongitude)
 {
-    // 1. Normalization (Western Hemisphere Check)
     float normalizedCoord = coord;
     if (isLongitude && coord < 0)
-    {
         normalizedCoord += 360.0;
-    }
 
-    // 2. Scaling (The NEX Constant from AstroLogic.h)
     uint32_t precise24bit = (uint32_t)(normalizedCoord * COORD_TO_24BIT);
 
-    // 3. Bit-Slicing (Splicing into High, Mid, Low bytes)
+    // Slicing into the global nexPayload cache
     nexPayload[0] = (uint8_t)((precise24bit >> 16) & 0xFF);
     nexPayload[1] = (uint8_t)((precise24bit >> 8) & 0xFF);
     nexPayload[2] = (uint8_t)(precise24bit & 0xFF);
 
-    // 4. Data Scope (Serial verification for Ross/Soss validation)
-    Serial.print(F("[NEX_MATH] "));
-    Serial.print(isLongitude ? F("Lon: ") : F("Lat: "));
-    Serial.print(coord, 6);
-    Serial.print(F(" -> HEX: "));
-    for (int i = 0; i < 3; i++)
-    {
-        if (nexPayload[i] < 0x10)
-            Serial.print('0');
-        Serial.print(nexPayload[i], HEX);
-        Serial.print(' ');
-    }
-    Serial.println();
+    // NO SERIAL PRINTS HERE. Silence is speed.
 }
 
 void setupNexStar()

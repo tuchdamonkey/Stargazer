@@ -8,6 +8,8 @@
 #include "GPS_sg.h"
 #include "NexStar_sg.h"
 
+TinyGPSPlus gps;
+
 // --- Bridge-Guard Physical Memory Definitions ---
 volatile SystemState currentState = STATE_IDLE;
 volatile int bufIndex = 0;
@@ -36,52 +38,34 @@ void setup()
 
 void loop()
 {
-  // 1. ATOMIC CAPTURE
+  // 1. HIGHEST PRIORITY: Constant Background Siphon
+  // We empty the ross buffer before doing anything else
   captureGpsBurst();
 
-  // 2. THE 3s SIP (The Safe Zone)
-  if (millis() - lastCarryTime >= sipInterval)
+  // 2. THE EVENT TRIGGER: Only work when TinyGPS++ has a full lock
+  if (gps.location.isUpdated())
   {
-    SYNC_HIGH(); // D7 Pulse: Start Processing
+    SYNC_HIGH(); // D7 HIGH: Nano is now "Thinking" (Translation Phase)
 
-    Serial.println(F("\n--- [STAGE 2: NEX TRANSLATION] ---"));
+    // Perform the silent 24-bit math
+    // This updates the nexPayload cache instantly
+    translateAndPack(gps.location.lat(), false);
+    translateAndPack(gps.location.lng(), true);
 
-    if (siloReady)
+    // 3. THE STAND-IN REPORT: Minimalist verification
+    // This replaces the bulky Stage 2 prints
+    Serial.print(F("NEX_READY: "));
+    for (int i = 0; i < 3; i++)
     {
-      char *rmc = strstr(gpsSilo, "$GPRMC");
-
-      if (rmc)
-      {
-        const char *latStr = findField(rmc, 3);
-        const char *latDir = findField(rmc, 4);
-        const char *lonStr = findField(rmc, 5);
-        const char *lonDir = findField(rmc, 6);
-
-        if (latStr && latDir && lonStr && lonDir)
-        {
-          float currentLat = convertNMEAToDecimal(latStr, latDir[0]);
-          float currentLon = convertNMEAToDecimal(lonStr, lonDir[0]);
-
-          // --- [START STAGE 2 INTEGRATION] ---
-          // Convert our validated floats into the 24-bit NexStar payload
-          translateAndPack(currentLat, false); // Process Latitude
-          translateAndPack(currentLon, true);  // Process Longitude
-          // --- [END STAGE 2 INTEGRATION] ---
-
-          Serial.print(F("GPS STATUS: VALIDATED\n"));
-          Serial.print(F("LAT: "));
-          Serial.println(currentLat, 6);
-          Serial.print(F("LON: "));
-          Serial.println(currentLon, 6);
-        }
-      }
+      if (nexPayload[i] < 0x10)
+        Serial.print('0');
+      Serial.print(nexPayload[i], HEX);
     }
-    else
-    {
-      Serial.println(F("STATUS: SILO INCOMPLETE/CHECKSUM FAIL"));
-    }
+    Serial.println();
 
-    lastCarryTime = millis();
-    SYNC_LOW(); // D7 Pulse: End Processing
+    SYNC_LOW(); // D7 LOW: Translation complete, back to vigilance
   }
+
+  // 4. AUX BUS LISTENER: Ready to serve the cache
+  processNexStar();
 }
