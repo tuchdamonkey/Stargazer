@@ -32,22 +32,26 @@ void setup()
   Serial.println(F("LOCKED AND LOADED. Listening for 0x3B..."));
 }
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
   nexSerial.begin(9600); // The Hack: 104us per bit
   INIT_DIAGNOSTICS();
   SYNC_LOW();
-  
+
   Serial.println(F("\n--- THE 9600 BAUD HAIL MARY ---"));
   Serial.println(F("Listening for Inverted 0x3B at half-speed..."));
 }
 
-void loop() {
-  if (nexSerial.available() > 0) {
+void loop()
+{
+  if (nexSerial.available() > 0)
+  {
     // Mirror the bits because of the MOSFET inversion
-    uint8_t incoming = ~nexSerial.read(); 
+    uint8_t incoming = ~nexSerial.read();
 
-    if (incoming == 0x3B) {
+    if (incoming == 0x3B)
+    {
       SYNC_HIGH();
       delay(50);
       SYNC_LOW();
