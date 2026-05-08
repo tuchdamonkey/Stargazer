@@ -50,6 +50,7 @@
 
 * [git push -u origin feature/ross-soss] The -u stands for set-upstream. After you run that one time, Git will "remember" the connection. From then on, as long as you are on that branch, you can just type: [git push]
 
-
+*
+*
 
 
