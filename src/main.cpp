@@ -32,26 +32,26 @@ void setup()
   Serial.println(F("LOCKED AND LOADED. Listening for 0x3B..."));
 }
 
-void loop()
-{
-  // Wait for the pin to move (Start Bit)
-  if (digitalRead(NEX_RX_PIN) == HIGH)
-  { // Assuming LOW is idle, HIGH is the start
-    unsigned long start = micros();
+void setup() {
+  Serial.begin(115200);
+  nexSerial.begin(9600); // The Hack: 104us per bit
+  INIT_DIAGNOSTICS();
+  SYNC_LOW();
+  
+  Serial.println(F("\n--- THE 9600 BAUD HAIL MARY ---"));
+  Serial.println(F("Listening for Inverted 0x3B at half-speed..."));
+}
 
-    // Wait for it to flip back
-    while (digitalRead(NEX_RX_PIN) == HIGH)
-      ;
-    unsigned long duration = micros() - start;
+void loop() {
+  if (nexSerial.available() > 0) {
+    // Mirror the bits because of the MOSFET inversion
+    uint8_t incoming = ~nexSerial.read(); 
 
-    // Report the width of the "swing"
-    Serial.print(F("BIT_WIDTH: "));
-    Serial.print(duration);
-    Serial.println(F(" us"));
-
-    // Visual strike on LA
-    SYNC_HIGH();
-    delayMicroseconds(100);
-    SYNC_LOW();
+    if (incoming == 0x3B) {
+      SYNC_HIGH();
+      delay(50);
+      SYNC_LOW();
+      Serial.println(F("HACK STRIKE! Captured 0x3B at 9600 logic."));
+    }
   }
 }
