@@ -72,56 +72,54 @@ bool isChecksumValid(char *sentence)
 // --- 3. THE ATOMIC SILO CAPTURE ---
 void captureGpsBurst()
 {
-  siloIndex = 0;
-  siloReady = false;
-  memset(gpsSilo, 0, SILO_SIZE);
-
-  unsigned long startWait = millis();
-
-  // Wait for the very first sign of life from the GPS
-  while (digitalRead(GPS_RX_PIN) == HIGH)
+  // MANTRA: Check for GPS Start Bit. If HIGH, no data is ready.
+  // Exit immediately to give the NexStar Listener priority.
+  if (digitalRead(GPS_RX_PIN) == HIGH)
   {
-    if (millis() - startWait > 1500)
-      return;
+    return;
   }
 
-  // Once life is detected, fill the bucket byte-by-byte
-  while (siloIndex < SILO_SIZE)
+  // --- SIP START ---
+  // If we are here, the pin is LOW. A byte is arriving.
+  char c = readRossByte();
+  
+  // Guard against overflow
+  if (siloIndex < SILO_SIZE)
   {
-    // Re-sync: Wait for the NEXT character's Start Bit (LOW)
-    while (digitalRead(GPS_RX_PIN) == HIGH)
-      ;
-
-    char c = readRossByte();
     gpsSilo[siloIndex++] = c;
+    toggleDiagnostic(); // Pulse D7 to show "Siphoning" activity
+  }
 
-    toggleDiagnostic(); // One pulse per character on D7
+  // Detection: End of burst (Look for the newline)
+  // We only run the heavy string analysis when we hit the end of the sentence
+  if (c == '\n' && siloIndex > 100)
+  {
+    char *rmcStart = strstr(gpsSilo, "$GPRMC");
+    char *ggaStart = strstr(gpsSilo, "$GPGGA");
 
-    // Detection: End of burst (Look for the second newline)
-    if (c == '\n' && siloIndex > 100)
+    if (rmcStart && ggaStart)
     {
-      char *rmcStart = strstr(gpsSilo, "$GPRMC");
-      char *ggaStart = strstr(gpsSilo, "$GPGGA");
-
-      if (rmcStart && ggaStart)
+      if (isChecksumValid(rmcStart) && isChecksumValid(ggaStart))
       {
-        if (isChecksumValid(rmcStart) && isChecksumValid(ggaStart))
-        {
-          siloReady = true;
-        }
-        else
-        {
-          // Failure: Quick stutter on D7
-          for (int i = 0; i < 6; i++)
-          {
-            toggleDiagnostic();
-            delayMicroseconds(500);
-          }
-          siloReady = false;
-        }
+        siloReady = true;
+        // Optional: Serial.println(F("GPS_SIP_COMPLETE"));
       }
-      break;
+      else
+      {
+        // Failure: Quick stutter on D7
+        for (int i = 0; i < 6; i++)
+        {
+          toggleDiagnostic();
+          delayMicroseconds(500);
+        }
+        siloReady = false;
+      }
     }
+    
+    // IMPORTANT: Reset siloIndex for the NEXT burst
+    // This turns the bucket back over to start fresh.
+    siloIndex = 0;
+    // Note: we don't memset here to save cycles; the next burst will overwrite.
   }
 }
 

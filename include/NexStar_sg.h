@@ -80,9 +80,9 @@ void sendNexPacket(uint8_t *p, uint8_t len)
     uint8_t chk = calculateChecksum(p, len);
     nexTalker.write(chk);
 
-    // nexTalker (soss) handles the bit-timing for the output
+    // Ghost Mode: Return to High-Impedance immediately.
+    // We remove the digitalWrite(LOW) to avoid interfering with the Bus voltage.
     pinMode(NEX_TX_PIN, INPUT);
-    digitalWrite(NEX_TX_PIN, LOW);
 }
 
 void processNexStar()
@@ -91,13 +91,11 @@ void processNexStar()
     {
         if (nexSerial.read() == PREAMBLE)
         {
+            // We've found the start; Nano is now "attending" to the bus
             negotiationActive = true;
 
             uint8_t len = nexSerial.read();
             uint8_t src = nexSerial.read();
-            (void)len; // Silence "unused" warning[cite: 4]
-            (void)src; // Silence "unused" warning[cite: 4]
-
             uint8_t dest = nexSerial.read();
 
             if (dest == ADDR_GPS)
@@ -106,15 +104,18 @@ void processNexStar()
 
                 if (cmd == CMD_GET_VER)
                 {
-                    auto nexStrike = []()
-                    {
+                    // The "Atomic Wrap" starts here
+                    syncEventAnchor([]()
+                                    {
+                        // Response data: Length, Src, Dest, Cmd, VerMajor, VerMinor
                         uint8_t verResp[] = {0x05, ADDR_GPS, ADDR_HC, CMD_GET_VER, 0x01, 0x02};
-                        sendNexPacket(verResp, 6);
-                        // NO SERIAL PRINTS HERE
-                    };
+                        
+                        // Execute the strike
+                        sendNexPacket(verResp, 6); });
 
-                    syncEventAnchor(nexStrike);
-                    Serial.println(F(">>> v1.1.1: Event Strike (GET_VER) Captured on D7"));
+                    // Serial.print is MOVED outside the syncEventAnchor
+                    // so it doesn't inflate the "Locked" duration on the LA.
+                    Serial.println(F(">>> v1.4: Locked State (GET_VER) Captured on D7"));
                 }
             }
             negotiationActive = false;

@@ -38,51 +38,60 @@ void setup()
 
 void loop()
 {
-  // 1. HIGHEST PRIORITY: Constant Background Siphon
+  // 1. THE SIPHONER: Check for 1 byte of GPS, then yield.
   captureGpsBurst();
 
-  // HEARTBEAT: Confirms the Nano is looping even without GPS lock
+  // 2. THE LISTENER: Priority check for Mount commands.
+  processNexStar();
+
+  // 3. THE TRANSLATOR: Update the 24-bit cache when GPS is fresh.
+  if (gps.location.isUpdated())
+  {
+    // Wrapped to show the "Thinking State" duration on D7
+    syncEventAnchor([]()
+                    {
+        translateAndPack(gps.location.lat(), false);
+        translateAndPack(gps.location.lng(), true); });
+
+    // PROOF OF CARRY: Verified every 10 seconds to keep the bus clear.
+    static unsigned long lastProof = 0;
+    if (millis() - lastProof > 10000)
+    {
+      Serial.print(F("PAYLOAD_VERIFIED: "));
+      for (int i = 0; i < 3; i++)
+      {
+        if (nexPayload[i] < 0x10)
+          Serial.print('0');
+        Serial.print(nexPayload[i], HEX);
+      }
+      Serial.println();
+      lastProof = millis();
+    }
+  }
+
+  // HEARTBEAT: Proof of loop stability
   static unsigned long lastHeartbeat = 0;
   if (millis() - lastHeartbeat > 5000)
   {
     Serial.println(F("BRAIN_CHECK: Looping..."));
     lastHeartbeat = millis();
   }
-
-  // 2. THE EVENT TRIGGER: Only work when TinyGPS++ has a full lock
-  if (gps.location.isUpdated())
-  {
-    SYNC_HIGH(); // D7 HIGH: Nano is now "Thinking"
-
-    // Perform the silent 24-bit math
-    translateAndPack(gps.location.lat(), false);
-    translateAndPack(gps.location.lng(), true);
-
-    // 3. THE STAND-IN REPORT
-    Serial.print(F("NEX_READY: "));
-    for (int i = 0; i < 3; i++)
-    {
-      if (nexPayload[i] < 0x10)
-        Serial.print('0');
-      Serial.print(nexPayload[i], HEX);
-    }
-    Serial.println();
-
-    SYNC_LOW(); // D7 LOW: Translation complete
-  }
-
-  // 4. AUX BUS LISTENER: Ready to serve the cache
-  processNexStar();
-} // <--- This was the "wall" causing the errors!
+}
 
 //==================================================
 
+// main.cpp
+
+/**
+ * @brief The Atomic Wrap: Ensures D7 is strictly a "Thinking State" indicator.
+ * Snap HIGH, execute, snap LOW. No exceptions.
+ */
 void syncEventAnchor(void (*func)())
 {
   if (func != nullptr)
   {
-    SYNC_HIGH(); // Force High at the start of the bridge
-    func();      // Execute the NexStar packet send
-    SYNC_LOW();  // Force Low the MOMENT the work is done
+    SYNC_HIGH(); // Enter Locked State
+    func();      // Execute NexStar Response
+    SYNC_LOW();  // Exit Locked State
   }
 }
