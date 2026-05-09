@@ -2,120 +2,98 @@
 #define NEXSTAR_SG_H
 
 #include <Arduino.h>
-#include <TinyGPS++.h>
 #include "Hardware_config.h"
 #include "ross.h"
 #include "soss.h"
 #include "AstroLogic.h"
-#include "Diagnostics.h"
 
 extern ross nexSerial;
 extern soss nexTalker;
 extern bool negotiationActive;
 extern void syncEventAnchor(void (*func)());
 
-// --- AUX BUS PROTOCOL CONSTANTS ---
 const uint8_t PREAMBLE = 0x3B;
-const uint8_t ADDR_GPS = 0xB0; // verified via LA capture
-const uint8_t ADDR_HC = 0x0D;  // verified LA capture
+const uint8_t ADDR_GPS = 0xB0;
+const uint8_t ADDR_HC = 0x0D;
 
-// Handshake Milestones
 const uint8_t CMD_GET_VER = 0xFE;
-const uint8_t CMD_GET_LOC = 0x01;  // Stage 2: Coordinates
-const uint8_t CMD_GET_TIME = 0x03; // Stage 3: Time/Date
+const uint8_t CMD_GET_LOC = 0x01;
+const uint8_t CMD_GET_TIME = 0x03;
 
-// --- STAGE 2: TRANSLATION & BUFFERING ---
-
-// Global buffer holding the last validated 3-byte coordinate translation.
-// This is the "Atomic Cache" the Nano serves when the HC requests data.
-static uint8_t nexPayload[3];
-
-/**
- * Translate & Pack: The unified "Brain" of Stage 2.
- * Converts GPS floats to 24-bit NexStar format and caches for instant delivery.
- */
-inline void translateAndPack(float coord, bool isLongitude)
-{
-    float normalizedCoord = coord;
-    if (isLongitude && coord < 0)
-        normalizedCoord += 360.0;
-
-    uint32_t precise24bit = (uint32_t)(normalizedCoord * COORD_TO_24BIT);
-
-    // Slicing into the global nexPayload cache
-    nexPayload[0] = (uint8_t)((precise24bit >> 16) & 0xFF);
-    nexPayload[1] = (uint8_t)((precise24bit >> 8) & 0xFF);
-    nexPayload[2] = (uint8_t)(precise24bit & 0xFF);
-
-    // NO SERIAL PRINTS HERE. Silence is speed.
-}
-
-void setupNexStar()
-{
-    nexSerial.begin(19200);
-    pinMode(NEX_RX_PIN, INPUT_PULLUP);
-    pinMode(NEX_TX_PIN, INPUT); // v1.0 Ghost Mode default
-    digitalWrite(NEX_TX_PIN, LOW);
-}
-
-uint8_t calculateChecksum(uint8_t *p, uint8_t len)
-{
-    uint16_t sum = 0;
-    for (uint8_t i = 0; i < len; i++)
-        sum += p[i];
-    return (uint8_t)((~sum + 1) & 0xFF);
-}
+// --- THE ATOMIC CACHE ---
+// These buffers hold the pre-baked 24-bit NexStar coordinates.
+// Stage 2 (AstroLogic) fills them; Stage 3 (NexStar_sg) serves them.
+uint8_t nexPayload_Lat[3] = {0, 0, 0};
+uint8_t nexPayload_Lon[3] = {0, 0, 0};
+uint8_t nexPayload_Date[4] = {0, 0, 0, 0};
+uint8_t nexPayload_Time[3] = {0, 0, 0};
 
 void sendNexPacket(uint8_t *p, uint8_t len)
 {
-    pinMode(NEX_TX_PIN, OUTPUT);
-
-    // USE nexTalker (soss) for Transmitting
     nexTalker.write(PREAMBLE);
+    // Write the payload
     for (uint8_t i = 0; i < len; i++)
     {
         nexTalker.write(p[i]);
     }
+    // Calculate checksum using AstroLogic's brain
+    // We add 2 to len because p doesn't include Preamble or the Checksum itself
+    uint8_t fullPacket[len + 2];
+    fullPacket[0] = PREAMBLE;
+    memcpy(&fullPacket[1], p, len);
 
-    uint8_t chk = calculateChecksum(p, len);
+    uint8_t chk = calculateNEXChecksum(fullPacket, len + 2);
     nexTalker.write(chk);
-
-    // Ghost Mode: Return to High-Impedance immediately.
-    // We remove the digitalWrite(LOW) to avoid interfering with the Bus voltage.
-    pinMode(NEX_TX_PIN, INPUT);
 }
 
 void processNexStar()
 {
+    // 1. Check if the 'ross' buffer has data
     if (nexSerial.available() > 0)
     {
+        // 2. Look for the Preamble (0x3B)
         if (nexSerial.read() == PREAMBLE)
         {
-            // We've found the start; Nano is now "attending" to the bus
             negotiationActive = true;
+
+            // 3. Wait for the 4-byte header: [Len] [Src] [Dest] [Cmd]
+            while (nexSerial.available() < 4)
+                ;
 
             uint8_t len = nexSerial.read();
             uint8_t src = nexSerial.read();
             uint8_t dest = nexSerial.read();
+            uint8_t cmd = nexSerial.read(); // NOW 'cmd' is defined!
 
+            // 4. Is the message for the GPS?
             if (dest == ADDR_GPS)
             {
-                uint8_t cmd = nexSerial.read();
-
+                // STAGE 1: Handshake
                 if (cmd == CMD_GET_VER)
                 {
-                    // The "Atomic Wrap" starts here
                     syncEventAnchor([]()
                                     {
-                        // Response data: Length, Src, Dest, Cmd, VerMajor, VerMinor
-                        uint8_t verResp[] = {0x05, ADDR_GPS, ADDR_HC, CMD_GET_VER, 0x01, 0x02};
-                        
-                        // Execute the strike
+                        uint8_t verResp[] = {0x05, ADDR_GPS, ADDR_HC, CMD_GET_VER, 0x01, 0x04};
                         sendNexPacket(verResp, 6); });
+                }
 
-                    // Serial.print is MOVED outside the syncEventAnchor
-                    // so it doesn't inflate the "Locked" duration on the LA.
-                    Serial.println(F(">>> v1.4: Locked State (GET_VER) Captured on D7"));
+                // STAGE 2: The Location "Carry"
+                else if (cmd == CMD_GET_LOC)
+                {
+                    syncEventAnchor([]()
+                                    {
+                        uint8_t locResp[10];
+                        locResp[0] = 0x09; // Length (Src+Dest+Cmd+6 payload bytes)
+                        locResp[1] = ADDR_GPS;
+                        locResp[2] = ADDR_HC;
+                        locResp[3] = CMD_GET_LOC;
+                        
+                        // Grab the pre-baked 24-bit hex from our buckets
+                        memcpy(&locResp[4], nexPayload_Lat, 3);
+                        memcpy(&locResp[7], nexPayload_Lon, 3);
+                        
+                        sendNexPacket(locResp, 10); });
+                    Serial.println(F(">>> v1.4: Coordinates Delivered to Bus"));
                 }
             }
             negotiationActive = false;
