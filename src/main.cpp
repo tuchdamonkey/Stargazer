@@ -25,7 +25,7 @@ char goldenPacket[85];
 bool muzzleActive = true;
 bool negotiationActive = false;
 unsigned long lastSip = 0;
-const int sipInterval = 3000;
+const unsigned long sipInterval = 10000; // 10-second "Siphon" rhythm
 
 ross nexSerial(NEX_TX_PIN, true);
 soss nexTalker(NEX_RX_PIN, true);
@@ -39,17 +39,32 @@ void setup()
   Serial.println(F("--- StarGazer v1.0: Ross/Soss Stage 1 ---"));
 
   INIT_DIAGNOSTICS();
+  LISTENER_ON(); // == DIAGNOSTIC TOOL ===D7 High: We boot into Listener-First posture
 }
 
 void loop()
 {
-  // 1. THE SIPHONER: Check for 1 byte of GPS, then yield.
-  captureGpsBurst();
+  // --- MANTRA: INSTANT TRIGGER ---
+  // If the NexStar RX line shows activity, we trip the flag immediately.
+  if (nexSerial.available() > 0)
+  {
+    negotiationActive = true;
+  }
 
-  // 2. THE LISTENER: Priority check for Mount commands.
+  // --- 1. THE SIPHONER: 10s HEARTBEAT ---
+  // We only step out to the GPS if the 10s timer has expired AND the bus is quiet.
+  if (millis() - lastSip >= sipInterval && !negotiationActive)
+  {
+    SIPHONER_ON();      // D7 Low: Diagnostic marker for Step-Out
+    captureGpsBurst();  // Siphoner Pillar
+    LISTENER_ON();      // D7 High: Diagnostic marker for Mantra Return
+    lastSip = millis(); // Reset the 10-second timer
+  }
+
+  // --- 2. THE LISTENER: Priority check for Mount commands ---
   processNexStar();
 
-  // 3. THE TRANSLATOR: Update the 24-bit cache when GPS is fresh.
+  // --- 3. THE TRANSLATOR: Update the 24-bit cache when GPS is fresh ---
   if (gps.location.isUpdated())
   {
     syncEventAnchor([]()
@@ -60,23 +75,20 @@ void loop()
         // Translate Lon and store in the Lon bucket
         packNEXCoord(gps.location.lng(), nexPayload_Lon[0], nexPayload_Lon[1], nexPayload_Lon[2]); });
 
-    // PROOF OF CARRY: Verified every 10 seconds to keep the bus clear.
+    // PROOF OF CARRY: Log update status (Internal Diagnostics)
     static unsigned long lastProof = 0;
     if (millis() - lastProof > 10000)
     {
       Serial.print(F("PAYLOAD_VERIFIED | Lat: "));
       for (int i = 0; i < 3; i++)
       {
-        // Fix: Use nexPayload_Lat here
         if (nexPayload_Lat[i] < 0x10)
           Serial.print('0');
         Serial.print(nexPayload_Lat[i], HEX);
       }
-
       Serial.print(F(" | Lon: "));
       for (int i = 0; i < 3; i++)
       {
-        // Use nexPayload_Lon here
         if (nexPayload_Lon[i] < 0x10)
           Serial.print('0');
         Serial.print(nexPayload_Lon[i], HEX);
@@ -105,10 +117,7 @@ void loop()
  */
 void syncEventAnchor(void (*func)())
 {
-  if (func != nullptr)
-  {
-    SYNC_HIGH(); // Enter Locked State
-    func();      // Execute NexStar Response
-    SYNC_LOW();  // Exit Locked State
-  }
+  LISTENER_ON(); // Ensure we are in the Mantra state during sensitive ops
+  func();
+  // We stay LISTENER_ON because that is our new default!
 }

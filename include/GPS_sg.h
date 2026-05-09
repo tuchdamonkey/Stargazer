@@ -11,6 +11,8 @@ char gpsSilo[SILO_SIZE];
 int siloIndex = 0;
 bool siloReady = false;
 
+extern bool negotiationActive; // To check if NexStar is talking
+
 unsigned long lastCarryTime = 0;
 const unsigned long carryInterval = 10000;
 
@@ -25,11 +27,11 @@ void captureGpsBurst();
 // --- 1. THE BIT-READER (Resyncing on Every Byte) ---
 char readRossByte()
 {
-  uint8_t pin = GPS_RX_PIN; 
+  uint8_t pin = GPS_RX_PIN;
   bool inverted = false;
 
   noInterrupts();
-  delayMicroseconds(135); 
+  delayMicroseconds(135);
 
   char incomingByte = 0;
   for (int i = 0; i < 8; i++)
@@ -83,15 +85,21 @@ void captureGpsBurst()
   // If we are here, the pin is LOW. A byte is arriving.
   char c = readRossByte();
 
+  // MANTRA GUARD: If NexStar speaks mid-siphon, we abandon ship.
+  if (nexSerial.available() > 0)
+  {
+    negotiationActive = true;
+    siloIndex = 0; // Reset bucket for next time
+    return;
+  }
+
   // Guard against overflow
   if (siloIndex < SILO_SIZE)
   {
     gpsSilo[siloIndex++] = c;
-    toggleDiagnostic(); // Pulse D7 to show "Siphoning" activity
   }
 
   // Detection: End of burst (Look for the newline)
-  // We only run the heavy string analysis when we hit the end of the sentence
   if (c == '\n' && siloIndex > 100)
   {
     char *rmcStart = strstr(gpsSilo, "$GPRMC");
@@ -102,17 +110,10 @@ void captureGpsBurst()
       if (isChecksumValid(rmcStart) && isChecksumValid(ggaStart))
       {
         siloReady = true;
-        // Optional: Serial.println(F("GPS_SIP_COMPLETE"));
       }
       else
       {
-        // Failure: Quick stutter on D7
-        for (int i = 0; i < 6; i++)
-        {
-          toggleDiagnostic();
-          delayMicroseconds(500);
-        }
-        siloReady = false;
+        siloReady = false; // Checksum failed
       }
     }
 
