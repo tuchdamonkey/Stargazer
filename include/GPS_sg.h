@@ -86,10 +86,10 @@ void captureGpsBurst()
   char c = readRossByte();
 
   // MANTRA GUARD: If NexStar speaks mid-siphon, we abandon ship.
-  if (nexSerial.available() > 0)
+  if (digitalRead(NEX_RX_PIN) == LOW)
   {
     negotiationActive = true;
-    siloIndex = 0; // Reset bucket for next time
+    siloIndex = 0;
     return;
   }
 
