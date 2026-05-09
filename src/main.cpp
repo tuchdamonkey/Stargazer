@@ -64,12 +64,20 @@ void loop()
     static unsigned long lastProof = 0;
     if (millis() - lastProof > 10000)
     {
-      Serial.print(F("PAYLOAD_VERIFIED: "));
+      Serial.print(F("PAYLOAD_VERIFIED | Lat: "));
       for (int i = 0; i < 3; i++)
       {
-        if (nexPayload[i] < 0x10)
-          Serial.print('0');
-        Serial.print(nexPayload[i], HEX);
+        // Fix: Use nexPayload_Lat here
+        if (nexPayload_Lat[i] < 0x10) Serial.print('0');
+        Serial.print(nexPayload_Lat[i], HEX);
+      }
+      
+      Serial.print(F(" | Lon: "));
+      for (int i = 0; i < 3; i++)
+      {
+        // Use nexPayload_Lon here
+        if (nexPayload_Lon[i] < 0x10) Serial.print('0');
+        Serial.print(nexPayload_Lon[i], HEX);
       }
       Serial.println();
       lastProof = millis();

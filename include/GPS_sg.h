@@ -25,22 +25,22 @@ void captureGpsBurst();
 // --- 1. THE BIT-READER (Resyncing on Every Byte) ---
 char readRossByte()
 {
-  // We arrive here exactly when the Start Bit (LOW) is detected
-  noInterrupts();
+  uint8_t pin = GPS_RX_PIN; 
+  bool inverted = false;
 
-  // Jump to the middle of Bit 0 (~150us from leading edge)
-  delayMicroseconds(135);
+  noInterrupts();
+  delayMicroseconds(135); 
 
   char incomingByte = 0;
   for (int i = 0; i < 8; i++)
   {
-    // Strike the bit
-    if (digitalRead(GPS_RX_PIN) == HIGH)
+    // USE the variables here to satisfy the compiler
+    bool bitValue = (inverted) ? (digitalRead(pin) == LOW) : (digitalRead(pin) == HIGH);
+
+    if (bitValue)
     {
       incomingByte |= (1 << i);
     }
-
-    // Delay to reach the next bit center (~104us total with overhead)
     delayMicroseconds(101);
   }
 
@@ -82,7 +82,7 @@ void captureGpsBurst()
   // --- SIP START ---
   // If we are here, the pin is LOW. A byte is arriving.
   char c = readRossByte();
-  
+
   // Guard against overflow
   if (siloIndex < SILO_SIZE)
   {
@@ -115,7 +115,7 @@ void captureGpsBurst()
         siloReady = false;
       }
     }
-    
+
     // IMPORTANT: Reset siloIndex for the NEXT burst
     // This turns the bucket back over to start fresh.
     siloIndex = 0;
