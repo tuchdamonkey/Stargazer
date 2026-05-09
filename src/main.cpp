@@ -8,6 +8,11 @@
 #include "GPS_sg.h"
 #include "NexStar_sg.h"
 
+extern uint8_t nexPayload_Lat[3];
+extern uint8_t nexPayload_Lon[3];
+extern uint8_t nexPayload_Date[4];
+extern uint8_t nexPayload_Time[3];
+
 TinyGPSPlus gps;
 
 // --- Bridge-Guard Physical Memory Definitions ---
@@ -48,13 +53,12 @@ void loop()
   if (gps.location.isUpdated())
   {
     syncEventAnchor([]()
-    {
+                    {
         // Translate Lat and store in the Lat bucket
         packNEXCoord(gps.location.lat(), nexPayload_Lat[0], nexPayload_Lat[1], nexPayload_Lat[2]);
         
         // Translate Lon and store in the Lon bucket
-        packNEXCoord(gps.location.lng(), nexPayload_Lon[0], nexPayload_Lon[1], nexPayload_Lon[2]);
-    });
+        packNEXCoord(gps.location.lng(), nexPayload_Lon[0], nexPayload_Lon[1], nexPayload_Lon[2]); });
 
     // PROOF OF CARRY: Verified every 10 seconds to keep the bus clear.
     static unsigned long lastProof = 0;
