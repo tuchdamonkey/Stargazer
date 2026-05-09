@@ -6,11 +6,15 @@
 #include "ross.h"
 #include "soss.h"
 #include "AstroLogic.h"
+#include "Diagnostics.h"
 
 extern ross nexSerial;
 extern soss nexTalker;
 extern bool negotiationActive;
 extern void syncEventAnchor(void (*func)());
+
+// --- ADJUSTABLE TUNING KNOBS ---
+#define NEX_TIMEOUT_MS 50
 
 const uint8_t PREAMBLE = 0x3B;
 const uint8_t ADDR_GPS = 0xB0;
@@ -48,26 +52,36 @@ void sendNexPacket(uint8_t *p, uint8_t len)
 
 void processNexStar()
 {
-    // 1. Check if the 'ross' buffer has data
     if (nexSerial.available() > 0)
     {
-        // 2. Look for the Preamble (0x3B)
         if (nexSerial.read() == PREAMBLE)
         {
+            // MANTRA: Instant Muzzle. Someone is talking.
             negotiationActive = true;
 
-            // 3. Wait for the 4-byte header: [Len] [Src] [Dest] [Cmd]
+            // 3. SAFETY GATE: Wait for the 4-byte header [Len][Src][Dest][Cmd]
+            unsigned long headerStart = millis();
             while (nexSerial.available() < 4)
-                ;
+            {
+                if (millis() - headerStart > NEX_TIMEOUT_MS)
+                {
+                    negotiationActive = false; // Prove it or lose it
+                    return;
+                }
+            }
 
-            uint8_t len = nexSerial.read();
-            uint8_t src = nexSerial.read();
+            // Headers are here, consume them
+            (void)nexSerial.read(); // Consume Len (using cast to satisfy compiler)
+            (void)nexSerial.read(); // Consume Src
             uint8_t dest = nexSerial.read();
-            uint8_t cmd = nexSerial.read(); // NOW 'cmd' is defined!
+            uint8_t cmd = nexSerial.read();
 
             // 4. Is the message for the GPS?
             if (dest == ADDR_GPS)
             {
+                // PROOF: The Notch confirms we recognized our address
+                pulseComprehension();
+
                 // STAGE 1: Handshake
                 if (cmd == CMD_GET_VER)
                 {
@@ -83,19 +97,19 @@ void processNexStar()
                     syncEventAnchor([]()
                                     {
                         uint8_t locResp[10];
-                        locResp[0] = 0x09; // Length (Src+Dest+Cmd+6 payload bytes)
+                        locResp[0] = 0x09;
                         locResp[1] = ADDR_GPS;
                         locResp[2] = ADDR_HC;
                         locResp[3] = CMD_GET_LOC;
                         
-                        // Grab the pre-baked 24-bit hex from our buckets
                         memcpy(&locResp[4], nexPayload_Lat, 3);
                         memcpy(&locResp[7], nexPayload_Lon, 3);
                         
                         sendNexPacket(locResp, 10); });
-                    Serial.println(F(">>> v1.4: Coordinates Delivered to Bus"));
                 }
             }
+
+            // Explicitly release muzzle after processing or if dest != ADDR_GPS
             negotiationActive = false;
         }
     }
