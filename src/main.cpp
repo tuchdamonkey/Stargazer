@@ -22,8 +22,8 @@ bool negotiationActive = false;
 unsigned long lastSip = 0;
 const int sipInterval = 3000;
 
-ross nexSerial(NEX_RX_PIN);
-soss nexTalker(NEX_TX_PIN);
+ross nexSerial(NEX_TX_PIN, true);
+soss nexTalker(NEX_RX_PIN, true);
 
 void setup()
 {
@@ -47,11 +47,14 @@ void loop()
   // 3. THE TRANSLATOR: Update the 24-bit cache when GPS is fresh.
   if (gps.location.isUpdated())
   {
-    // Wrapped to show the "Thinking State" duration on D7
     syncEventAnchor([]()
-                    {
-        translateAndPack(gps.location.lat(), false);
-        translateAndPack(gps.location.lng(), true); });
+    {
+        // Translate Lat and store in the Lat bucket
+        packNEXCoord(gps.location.lat(), nexPayload_Lat[0], nexPayload_Lat[1], nexPayload_Lat[2]);
+        
+        // Translate Lon and store in the Lon bucket
+        packNEXCoord(gps.location.lng(), nexPayload_Lon[0], nexPayload_Lon[1], nexPayload_Lon[2]);
+    });
 
     // PROOF OF CARRY: Verified every 10 seconds to keep the bus clear.
     static unsigned long lastProof = 0;
