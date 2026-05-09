@@ -68,15 +68,17 @@ void loop()
       for (int i = 0; i < 3; i++)
       {
         // Fix: Use nexPayload_Lat here
-        if (nexPayload_Lat[i] < 0x10) Serial.print('0');
+        if (nexPayload_Lat[i] < 0x10)
+          Serial.print('0');
         Serial.print(nexPayload_Lat[i], HEX);
       }
-      
+
       Serial.print(F(" | Lon: "));
       for (int i = 0; i < 3; i++)
       {
         // Use nexPayload_Lon here
-        if (nexPayload_Lon[i] < 0x10) Serial.print('0');
+        if (nexPayload_Lon[i] < 0x10)
+          Serial.print('0');
         Serial.print(nexPayload_Lon[i], HEX);
       }
       Serial.println();
