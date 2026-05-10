@@ -27,12 +27,12 @@ bool negotiationActive = false;
 unsigned long lastSip = 0;
 const unsigned long sipInterval = 5000; // 10-second "Siphon" rhythm
 
-ross nexSerial(NEX_TX_PIN, true);
+ross nexSerial(NEX_TX_PIN, false);
 soss nexTalker(NEX_RX_PIN, false);
 
 void setup()
 {
-  
+
   Serial.begin(115200);
   nexSerial.begin(19200);
   nexTalker.begin(19200);
@@ -45,7 +45,7 @@ void setup()
 
 void loop()
 {
-  
+
   /*
     // --- 1. THE SIPHONER: 5s HEARTBEAT ---
     // We only step out to the GPS if the 10s timer has expired AND the bus is quiet.
