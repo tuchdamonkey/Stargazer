@@ -5,8 +5,6 @@
 #include "Hardware_config.h"
 #include "Diagnostics.h"
 
-
-
 // --- GLOBALS & CONFIG ---
 #define SIPHON_WINDOW_MS 500
 #define SILO_SIZE 160
@@ -23,7 +21,6 @@ extern char goldenPacket[85];
 extern volatile int bufIndex;
 extern volatile SystemState currentState;
 extern int siloIndex;
-
 
 // === PROTOTYPES ===
 void setupGPS();
@@ -105,19 +102,18 @@ void captureGpsBurst()
       }
 
       // If we finish a sentence, we can leave early!
-      if (c == '\n') 
+      if (c == '\n')
       {
-          if (siloIndex > 20) // Safety: ensure we didn't just grab a stray newline
-          {
-              gpsSilo[siloIndex] = '\0'; // Null-terminate for string safety
-              siloReady = true; 
-              break; // Success! Exit the 500ms window immediately
-          }
+        if (siloIndex > 20) // Safety: ensure we didn't just grab a stray newline
+        {
+          gpsSilo[siloIndex] = '\0'; // Null-terminate for string safety
+          siloReady = true;
+          break; // Success! Exit the 500ms window immediately
+        }
       }
     }
   }
 }
-
 
 // --- 4. HARDWARE SETUP & UTILS ---
 void rossWrite(char c)

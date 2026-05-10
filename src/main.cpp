@@ -22,19 +22,17 @@ volatile bool packetReady = false;
 char goldenPacket[85];
 
 // --- System State Flags ---
-bool muzzleActive = true;
+bool muzzleActive = false;
 bool negotiationActive = false;
 unsigned long lastSip = 0;
 const unsigned long sipInterval = 5000; // 10-second "Siphon" rhythm
 
-ross nexSerial(NEX_TX_PIN, false);
+ross nexSerial(NEX_TX_PIN, true);
 soss nexTalker(NEX_RX_PIN, false);
 
 void setup()
 {
-  pinMode(NEX_RX_PIN, OUTPUT);
-  digitalWrite(NEX_RX_PIN, HIGH);
-
+  
   Serial.begin(115200);
   nexSerial.begin(19200);
   nexTalker.begin(19200);
