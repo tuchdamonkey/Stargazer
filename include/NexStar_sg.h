@@ -122,7 +122,7 @@ void processNexStar()
     }
 
     // 2. THE AUTO-RELEASE: Standard clear
-    if (nexSerial.available() == 0)
+    if (nexSerial.available() == 1)
     {
         negotiationActive = false;
     }

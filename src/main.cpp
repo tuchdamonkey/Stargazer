@@ -25,7 +25,7 @@ char goldenPacket[85];
 bool muzzleActive = true;
 bool negotiationActive = false;
 unsigned long lastSip = 0;
-const unsigned long sipInterval = 10000; // 10-second "Siphon" rhythm
+const unsigned long sipInterval = 5000; // 10-second "Siphon" rhythm
 
 ross nexSerial(NEX_TX_PIN, true);
 soss nexTalker(NEX_RX_PIN, true);
