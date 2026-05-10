@@ -23,7 +23,7 @@ extern char goldenPacket[85];
 extern volatile int bufIndex;
 extern volatile SystemState currentState;
 extern int siloIndex;
-bool siloReady = false;
+
 
 // === PROTOTYPES ===
 void setupGPS();
