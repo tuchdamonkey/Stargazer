@@ -27,6 +27,8 @@
 * [git checkout (eg, main, feature-name)] takes you to the snapshot workspace you designate
 * [git restore -staged <file>...] use to unstage "git add . "
 * [git commit --amend -m "Your new, descriptive message here"] good commit, but wrong message
+* [git log --oneline --graph -n 20] use to see snapshot log
+    * [git reset --hard a1b2c3d] replace a1b2c3d with the actual commit hash
 
 
 

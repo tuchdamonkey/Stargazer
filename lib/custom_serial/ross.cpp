@@ -201,11 +201,7 @@ bool ross::listen()
 //
 void ross::recv()
 {
-
 #if GCC_VERSION < 40302
-	// Work-around for avr-gcc 4.3.0 OSX version bug
-	// Preserve the registers that the compiler misses
-	// (courtesy of Arduino forum user *etracer*)
 	asm volatile(
 		"push r18 \n\t"
 		"push r19 \n\t"
@@ -219,35 +215,46 @@ void ross::recv()
 
 	uint8_t d = 0;
 
-	// If RX line is high, then we don't see any start bit
-	// so interrupt is probably not for us
-	if (_inverse_logic ? rx_pin_read() : !rx_pin_read())
+	// --- 1. THE INVERTED GATE ---
+	// Bus Idle = HIGH -> MOSFET ON -> Nano Pin LOW.
+	// Bus Start = LOW -> MOSFET OFF -> Nano Pin HIGH.
+	if (rx_pin_read())
 	{
-		// Wait approximately 1/2 of a bit width to "center" the sample
+		// Center the sample in the middle of the Start Bit
 		tunedDelay(_rx_delay_centering);
 
-		// Read each of the 8 bits
+		// --- 2. THE SAMPLING LOOP ---
 		for (uint8_t i = 0x1; i; i <<= 1)
 		{
+			// Move to the middle of the next bit (Full bit-width delay)
 			tunedDelay(_rx_delay_intrabit);
-			uint8_t noti = ~i;
-			if (rx_pin_read())
+
+			// --- THE INVASION LOGIC ---
+			// Nano Pin LOW = MOSFET OFF = Bus HIGH (1)
+			// Nano Pin HIGH = MOSFET ON = Bus LOW (0)
+			if (!rx_pin_read())
+			{
 				d |= i;
-			else // else clause added to ensure function timing is ~balanced
-				d &= noti;
+			}
+			else
+			{
+				d &= ~i;
+			}
 		}
 
-		// skip the stop bit
+		// 3. Skip the stop bit
 		tunedDelay(_rx_delay_stopbit);
 
+		// 4. BUFFER HANDLING
+		// We handle inversion above; if _inverse_logic is false in main, this is skipped.
 		if (_inverse_logic)
+		{
 			d = ~d;
+		}
 
-		// if buffer full, set the overflow flag and return
 		if ((_receive_buffer_tail + 1) % _SS_MAX_RX_BUFF != _receive_buffer_head)
 		{
-			// save new data in buffer: tail points to where byte goes
-			_receive_buffer[_receive_buffer_tail] = d; // save new byte
+			_receive_buffer[_receive_buffer_tail] = d;
 			_receive_buffer_tail = (_receive_buffer_tail + 1) % _SS_MAX_RX_BUFF;
 		}
 		else
@@ -257,8 +264,6 @@ void ross::recv()
 	}
 
 #if GCC_VERSION < 40302
-	// Work-around for avr-gcc 4.3.0 OSX version bug
-	// Restore the registers that the compiler misses
 	asm volatile(
 		"pop r27 \n\t"
 		"pop r26 \n\t"
