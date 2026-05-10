@@ -57,7 +57,7 @@ void processNexStar()
 {
     // --- MANTRA CHECK: DEFAULT TO LISTENER ---
     // D7 stays HIGH here. The ross::recv() interrupt is always armed.
-    LISTENER_ON(); 
+    LISTENER_ON();
 
     // 1. DATA TRACKING
     if (nexSerial.available() > 0)
@@ -73,13 +73,13 @@ void processNexStar()
         while (nexSerial.available() > 0)
         {
             // CUE: Look for the Preamble (0x3B)
-            if (nexSerial.peek() == PREAMBLE) 
+            if (nexSerial.peek() == PREAMBLE)
             {
                 // ATOMIC PROOF: Trigger D7 Notch the microsecond 3B is seen
-                pulseComprehension(); 
-                
+                pulseComprehension();
+
                 // Header check: [3B] [Len] [Src] [Dest]
-                if (nexSerial.available() >= 4) 
+                if (nexSerial.available() >= 4)
                 {
                     (void)nexSerial.read(); // Burn 3B
                     (void)nexSerial.read(); // Burn Len
@@ -92,9 +92,9 @@ void processNexStar()
                         // ... Run Command Logic (Version/Location) ...
                     }
                 }
-                break; 
+                break;
             }
-            else 
+            else
             {
                 (void)nexSerial.read(); // Scrub noise
             }
@@ -105,7 +105,7 @@ void processNexStar()
     // Only drop the Listener (D7 LOW) if the bus is silent AND no negotiation is active.
     if (!negotiationActive && (millis() - lastNexByteTime > NEX_SILENCE_GAP))
     {
-        SIPHONER_ON(); 
+        SIPHONER_ON();
         // Inside main.cpp, the loop will see D7 is LOW and allow siphonGPS()
     }
 }
