@@ -55,10 +55,22 @@ void loop()
   // We only step out to the GPS if the 10s timer has expired AND the bus is quiet.
   if (millis() - lastSip >= sipInterval && !negotiationActive)
   {
-    SIPHONER_ON();      // D7 Low: Diagnostic marker for Step-Out
-    captureGpsBurst();  // Siphoner Pillar
-    LISTENER_ON();      // D7 High: Diagnostic marker for Mantra Return
-    lastSip = millis(); // Reset the 10-second timer
+    SIPHONER_ON();
+    captureGpsBurst();
+
+    // NEW: The Feeder Logic
+    if (siloReady)
+    {
+      for (int i = 0; i < siloIndex; i++)
+      {
+        gps.encode(gpsSilo[i]); // Feed the TinyGPS engine
+      }
+      siloReady = false; // Reset for next time
+      siloIndex = 0;     // Clear the index
+    }
+
+    LISTENER_ON();
+    lastSip = millis();
   }
 
   // --- 2. THE LISTENER: Priority check for Mount commands ---
