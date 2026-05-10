@@ -44,12 +44,6 @@ void setup()
 
 void loop()
 {
-  // --- MANTRA: INSTANT TRIGGER ---
-  // If the NexStar RX line shows activity, we trip the flag immediately.
-  if (nexSerial.available() > 0)
-  {
-    negotiationActive = true;
-  }
 
   // --- 1. THE SIPHONER: 10s HEARTBEAT ---
   // We only step out to the GPS if the 10s timer has expired AND the bus is quiet.
@@ -91,20 +85,24 @@ void loop()
     static unsigned long lastProof = 0;
     if (millis() - lastProof > 10000)
     {
-      Serial.print(F("PAYLOAD_VERIFIED | Lat: "));
-      for (int i = 0; i < 3; i++)
-      {
-        if (nexPayload_Lat[i] < 0x10)
-          Serial.print('0');
-        Serial.print(nexPayload_Lat[i], HEX);
+      Serial.print(F("PAYLOAD_VERIFIED | "));
+      
+      // Print Lat
+      Serial.print(F("Lat: "));
+      for (int i = 0; i < 3; i++) Serial.print(nexPayload_Lat[i], HEX);
+      
+      // Print UTC Time from TinyGPS++
+      Serial.print(F(" | UTC: "));
+      if (gps.time.isValid()) {
+        if (gps.time.hour() < 10) Serial.print(F("0")); Serial.print(gps.time.hour());
+        Serial.print(F(":"));
+        if (gps.time.minute() < 10) Serial.print(F("0")); Serial.print(gps.time.minute());
+        Serial.print(F(":"));
+        if (gps.time.second() < 10) Serial.print(F("0")); Serial.print(gps.time.second());
+      } else {
+        Serial.print(F("WAITING_FOR_FIX"));
       }
-      Serial.print(F(" | Lon: "));
-      for (int i = 0; i < 3; i++)
-      {
-        if (nexPayload_Lon[i] < 0x10)
-          Serial.print('0');
-        Serial.print(nexPayload_Lon[i], HEX);
-      }
+      
       Serial.println();
       lastProof = millis();
     }

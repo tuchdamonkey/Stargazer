@@ -52,12 +52,17 @@ void sendNexPacket(uint8_t *p, uint8_t len)
 
 void processNexStar()
 {
+    // 1. THE TRIGGER: If bytes are waiting, check the first one
     if (nexSerial.available() > 0)
     {
-        if (nexSerial.read() == PREAMBLE)
+        // Use peek() to see if it's 0x3B without removing it yet
+        if (nexSerial.peek() == PREAMBLE)
         {
             // MANTRA: Instant Muzzle. Someone is talking.
             negotiationActive = true;
+
+            // Now we consume that Preamble byte we just peeked at
+            (void)nexSerial.read();
 
             // 3. SAFETY GATE: Wait for the 4-byte header [Len][Src][Dest][Cmd]
             unsigned long headerStart = millis();
@@ -71,7 +76,7 @@ void processNexStar()
             }
 
             // Headers are here, consume them
-            (void)nexSerial.read(); // Consume Len (using cast to satisfy compiler)
+            (void)nexSerial.read(); // Consume Len
             (void)nexSerial.read(); // Consume Src
             uint8_t dest = nexSerial.read();
             uint8_t cmd = nexSerial.read();
@@ -79,7 +84,6 @@ void processNexStar()
             // 4. Is the message for the GPS?
             if (dest == ADDR_GPS)
             {
-                // PROOF: The Notch confirms we recognized our address
                 pulseComprehension();
 
                 // STAGE 1: Handshake
@@ -112,6 +116,17 @@ void processNexStar()
             // Explicitly release muzzle after processing or if dest != ADDR_GPS
             negotiationActive = false;
         }
+        else
+        {
+            // If the byte wasn't a Preamble, consume it to clear the "noise"
+            (void)nexSerial.read();
+        }
+    }
+
+    // 2. THE AUTO-RELEASE: Final safety check to clear the flag if buffer is empty
+    if (nexSerial.available() == 0)
+    {
+        negotiationActive = false;
     }
 }
 
