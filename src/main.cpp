@@ -47,6 +47,7 @@ void setup()
 
 void loop()
 {
+  
   /*
     // --- 1. THE SIPHONER: 5s HEARTBEAT ---
     // We only step out to the GPS if the 10s timer has expired AND the bus is quiet.

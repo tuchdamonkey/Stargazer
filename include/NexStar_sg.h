@@ -55,76 +55,58 @@ void sendNexPacket(uint8_t *p, uint8_t len)
 
 void processNexStar()
 {
-    // 1. DATA TRACKING: If data is present, update our "Last Seen" timestamp
+    // --- MANTRA CHECK: DEFAULT TO LISTENER ---
+    // D7 stays HIGH here. The ross::recv() interrupt is always armed.
+    LISTENER_ON(); 
+
+    // 1. DATA TRACKING
     if (nexSerial.available() > 0)
     {
         lastNexByteTime = millis();
+    }
 
-        // Check for the Preamble
-        if (nexSerial.peek() == PREAMBLE)
+    // 2. THE HANDSHAKE CUE (Simplified)
+    // We only attempt to parse when we haven't heard a byte for a few milliseconds.
+    // This ensures we aren't "thinking" while the telescope is still "speaking."
+    if (nexSerial.available() > 0 && (millis() - lastNexByteTime > NEX_SILENCE_GAP))
+    {
+        while (nexSerial.available() > 0)
         {
-            negotiationActive = true;
-            (void)nexSerial.read(); // Consume the 0x3B
-
-            // 3. SAFETY GATE: Wait for the 4-byte header
-            unsigned long headerStart = millis();
-            while (nexSerial.available() < 4)
+            // CUE: Look for the Preamble (0x3B)
+            if (nexSerial.peek() == PREAMBLE) 
             {
-                if (millis() - headerStart > NEX_TIMEOUT_MS)
+                // ATOMIC PROOF: Trigger D7 Notch the microsecond 3B is seen
+                pulseComprehension(); 
+                
+                // Header check: [3B] [Len] [Src] [Dest]
+                if (nexSerial.available() >= 4) 
                 {
-                    // No need to release yet; the Silence Gap will handle it if the bus stays dead
-                    return;
+                    (void)nexSerial.read(); // Burn 3B
+                    (void)nexSerial.read(); // Burn Len
+                    (void)nexSerial.read(); // Burn Src
+                    uint8_t dest = nexSerial.read();
+
+                    if (dest == ADDR_GPS)
+                    {
+                        negotiationActive = true;
+                        // ... Run Command Logic (Version/Location) ...
+                    }
                 }
+                break; 
             }
-
-            (void)nexSerial.read(); // Len
-            (void)nexSerial.read(); // Src
-            uint8_t dest = nexSerial.read();
-            uint8_t cmd = nexSerial.read();
-
-            if (dest == ADDR_GPS)
+            else 
             {
-                pulseComprehension();
-
-                if (cmd == CMD_GET_VER)
-                {
-                    syncEventAnchor([]() {
-                        uint8_t verResp[] = {0x05, ADDR_GPS, ADDR_HC, CMD_GET_VER, 0x01, 0x04};
-                        sendNexPacket(verResp, 6); 
-                    });
-                }
-                else if (cmd == CMD_GET_LOC)
-                {
-                    syncEventAnchor([]() {
-                        uint8_t locResp[10];
-                        locResp[0] = 0x09;
-                        locResp[1] = ADDR_GPS;
-                        locResp[2] = ADDR_HC;
-                        locResp[3] = CMD_GET_LOC;
-                        memcpy(&locResp[4], nexPayload_Lat, 3);
-                        memcpy(&locResp[7], nexPayload_Lon, 3);
-                        sendNexPacket(locResp, 10); 
-                    });
-                }
-                // DELIVERY COMPLETE: Transaction ended successfully
-                negotiationActive = false;
-                while(nexSerial.available() > 0) (void)nexSerial.read(); // Clear "Echoes"
+                (void)nexSerial.read(); // Scrub noise
             }
-        }
-        else
-        {
-            // If it's not a Preamble, it's noise or a mid-packet byte we don't want
-            (void)nexSerial.read();
         }
     }
 
-    // --- THE SILENCE-BASED BUFFER WIPE ---
-    // If the muzzle is on but the bus has been quiet for 500ms...
-    if (negotiationActive && (millis() - lastNexByteTime > NEX_SILENCE_GAP))
+    // --- MANTRA TRANSITION: THE SIPHON GATE ---
+    // Only drop the Listener (D7 LOW) if the bus is silent AND no negotiation is active.
+    if (!negotiationActive && (millis() - lastNexByteTime > NEX_SILENCE_GAP))
     {
-        negotiationActive = false;
-        // Aggressive Flush: Leave the room clean
-        while(nexSerial.available() > 0) (void)nexSerial.read();
+        SIPHONER_ON(); 
+        // Inside main.cpp, the loop will see D7 is LOW and allow siphonGPS()
     }
 }
 
