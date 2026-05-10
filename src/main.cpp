@@ -86,23 +86,33 @@ void loop()
     if (millis() - lastProof > 10000)
     {
       Serial.print(F("PAYLOAD_VERIFIED | "));
-      
+
       // Print Lat
       Serial.print(F("Lat: "));
-      for (int i = 0; i < 3; i++) Serial.print(nexPayload_Lat[i], HEX);
-      
+      for (int i = 0; i < 3; i++)
+        Serial.print(nexPayload_Lat[i], HEX);
+
       // Print UTC Time from TinyGPS++
       Serial.print(F(" | UTC: "));
-      if (gps.time.isValid()) {
-        if (gps.time.hour() < 10) Serial.print(F("0")); Serial.print(gps.time.hour());
+      if (gps.time.isValid())
+      {
+        if (gps.time.hour() < 10)
+          Serial.print(F("0"));
+        Serial.print(gps.time.hour());
         Serial.print(F(":"));
-        if (gps.time.minute() < 10) Serial.print(F("0")); Serial.print(gps.time.minute());
+        if (gps.time.minute() < 10)
+          Serial.print(F("0"));
+        Serial.print(gps.time.minute());
         Serial.print(F(":"));
-        if (gps.time.second() < 10) Serial.print(F("0")); Serial.print(gps.time.second());
-      } else {
+        if (gps.time.second() < 10)
+          Serial.print(F("0"));
+        Serial.print(gps.time.second());
+      }
+      else
+      {
         Serial.print(F("WAITING_FOR_FIX"));
       }
-      
+
       Serial.println();
       lastProof = millis();
     }

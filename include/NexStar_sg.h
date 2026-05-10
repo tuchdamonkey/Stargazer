@@ -13,6 +13,9 @@ extern soss nexTalker;
 extern bool negotiationActive;
 extern void syncEventAnchor(void (*func)());
 
+unsigned long lastNexActivity = 0; 
+const unsigned long NEX_WATCHDOG_TIMEOUT = 2000; // 2-second lease
+
 // --- ADJUSTABLE TUNING KNOBS ---
 #define NEX_TIMEOUT_MS 50
 
@@ -55,75 +58,70 @@ void processNexStar()
     // 1. THE TRIGGER: If bytes are waiting, check the first one
     if (nexSerial.available() > 0)
     {
-        // Use peek() to see if it's 0x3B without removing it yet
         if (nexSerial.peek() == PREAMBLE)
         {
-            // MANTRA: Instant Muzzle. Someone is talking.
             negotiationActive = true;
+            lastNexActivity = millis(); // REFRESH THE LEASE: We heard a real preamble
 
-            // Now we consume that Preamble byte we just peeked at
             (void)nexSerial.read();
 
-            // 3. SAFETY GATE: Wait for the 4-byte header [Len][Src][Dest][Cmd]
+            // 3. SAFETY GATE: Wait for the 4-byte header
             unsigned long headerStart = millis();
             while (nexSerial.available() < 4)
             {
                 if (millis() - headerStart > NEX_TIMEOUT_MS)
                 {
-                    negotiationActive = false; // Prove it or lose it
+                    negotiationActive = false; 
                     return;
                 }
             }
 
-            // Headers are here, consume them
-            (void)nexSerial.read(); // Consume Len
-            (void)nexSerial.read(); // Consume Src
+            (void)nexSerial.read(); // Len
+            (void)nexSerial.read(); // Src
             uint8_t dest = nexSerial.read();
             uint8_t cmd = nexSerial.read();
 
-            // 4. Is the message for the GPS?
             if (dest == ADDR_GPS)
             {
                 pulseComprehension();
 
-                // STAGE 1: Handshake
                 if (cmd == CMD_GET_VER)
                 {
-                    syncEventAnchor([]()
-                                    {
+                    syncEventAnchor([]() {
                         uint8_t verResp[] = {0x05, ADDR_GPS, ADDR_HC, CMD_GET_VER, 0x01, 0x04};
-                        sendNexPacket(verResp, 6); });
+                        sendNexPacket(verResp, 6); 
+                    });
                 }
-
-                // STAGE 2: The Location "Carry"
                 else if (cmd == CMD_GET_LOC)
                 {
-                    syncEventAnchor([]()
-                                    {
+                    syncEventAnchor([]() {
                         uint8_t locResp[10];
                         locResp[0] = 0x09;
                         locResp[1] = ADDR_GPS;
                         locResp[2] = ADDR_HC;
                         locResp[3] = CMD_GET_LOC;
-                        
                         memcpy(&locResp[4], nexPayload_Lat, 3);
                         memcpy(&locResp[7], nexPayload_Lon, 3);
-                        
-                        sendNexPacket(locResp, 10); });
+                        sendNexPacket(locResp, 10); 
+                    });
                 }
             }
-
-            // Explicitly release muzzle after processing or if dest != ADDR_GPS
-            negotiationActive = false;
+            negotiationActive = false; // Normal release
         }
         else
         {
-            // If the byte wasn't a Preamble, consume it to clear the "noise"
-            (void)nexSerial.read();
+            (void)nexSerial.read(); // Clear noise
         }
     }
 
-    // 2. THE AUTO-RELEASE: Final safety check to clear the flag if buffer is empty
+    // --- THE WATCHDOG FORCE-RELEASE ---
+    // If the muzzle is on but we haven't heard a valid preamble in 2 seconds...
+    if (negotiationActive && (millis() - lastNexActivity > 2000))
+    {
+        negotiationActive = false; // Force-unlock for the Siphoner
+    }
+
+    // 2. THE AUTO-RELEASE: Standard clear
     if (nexSerial.available() == 0)
     {
         negotiationActive = false;
