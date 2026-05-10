@@ -13,11 +13,11 @@ extern soss nexTalker;
 extern bool negotiationActive;
 extern void syncEventAnchor(void (*func)());
 
-unsigned long lastNexActivity = 0; 
-const unsigned long NEX_WATCHDOG_TIMEOUT = 2000; // 2-second lease
-
 // --- ADJUSTABLE TUNING KNOBS ---
 #define NEX_TIMEOUT_MS 50
+#define NEX_SILENCE_GAP 500
+
+unsigned long lastNexByteTime = 0;
 
 const uint8_t PREAMBLE = 0x3B;
 const uint8_t ADDR_GPS = 0xB0;
@@ -55,15 +55,16 @@ void sendNexPacket(uint8_t *p, uint8_t len)
 
 void processNexStar()
 {
-    // 1. THE TRIGGER: If bytes are waiting, check the first one
+    // 1. DATA TRACKING: If data is present, update our "Last Seen" timestamp
     if (nexSerial.available() > 0)
     {
+        lastNexByteTime = millis();
+
+        // Check for the Preamble
         if (nexSerial.peek() == PREAMBLE)
         {
             negotiationActive = true;
-            lastNexActivity = millis(); // REFRESH THE LEASE: We heard a real preamble
-
-            (void)nexSerial.read();
+            (void)nexSerial.read(); // Consume the 0x3B
 
             // 3. SAFETY GATE: Wait for the 4-byte header
             unsigned long headerStart = millis();
@@ -71,7 +72,7 @@ void processNexStar()
             {
                 if (millis() - headerStart > NEX_TIMEOUT_MS)
                 {
-                    negotiationActive = false; 
+                    // No need to release yet; the Silence Gap will handle it if the bus stays dead
                     return;
                 }
             }
@@ -105,26 +106,25 @@ void processNexStar()
                         sendNexPacket(locResp, 10); 
                     });
                 }
+                // DELIVERY COMPLETE: Transaction ended successfully
+                negotiationActive = false;
+                while(nexSerial.available() > 0) (void)nexSerial.read(); // Clear "Echoes"
             }
-            negotiationActive = false; // Normal release
         }
         else
         {
-            (void)nexSerial.read(); // Clear noise
+            // If it's not a Preamble, it's noise or a mid-packet byte we don't want
+            (void)nexSerial.read();
         }
     }
 
-    // --- THE WATCHDOG FORCE-RELEASE ---
-    // If the muzzle is on but we haven't heard a valid preamble in 2 seconds...
-    if (negotiationActive && (millis() - lastNexActivity > 2000))
-    {
-        negotiationActive = false; // Force-unlock for the Siphoner
-    }
-
-    // 2. THE AUTO-RELEASE: Standard clear
-    if (nexSerial.available() == 1)
+    // --- THE SILENCE-BASED BUFFER WIPE ---
+    // If the muzzle is on but the bus has been quiet for 500ms...
+    if (negotiationActive && (millis() - lastNexByteTime > NEX_SILENCE_GAP))
     {
         negotiationActive = false;
+        // Aggressive Flush: Leave the room clean
+        while(nexSerial.available() > 0) (void)nexSerial.read();
     }
 }
 

@@ -45,10 +45,15 @@ void setup()
 void loop()
 {
 
-  // --- 1. THE SIPHONER: 10s HEARTBEAT ---
+  // --- 1. THE SIPHONER: 5s HEARTBEAT ---
   // We only step out to the GPS if the 10s timer has expired AND the bus is quiet.
   if (millis() - lastSip >= sipInterval && !negotiationActive)
   {
+    // PRE-SIPHON DESK SWEEP:
+    // If the bus is quiet but there's "ghost data" in the buffer, kill it now.
+    while (nexSerial.available() > 0)
+      (void)nexSerial.read();
+
     SIPHONER_ON();
     captureGpsBurst();
 
