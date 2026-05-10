@@ -34,7 +34,7 @@ void setup()
 {
   pinMode(NEX_RX_PIN, OUTPUT);
   digitalWrite(NEX_RX_PIN, HIGH);
-  
+
   Serial.begin(115200);
   nexSerial.begin(19200);
   nexTalker.begin(19200);
@@ -47,34 +47,34 @@ void setup()
 
 void loop()
 {
-/*
-  // --- 1. THE SIPHONER: 5s HEARTBEAT ---
-  // We only step out to the GPS if the 10s timer has expired AND the bus is quiet.
-  if (millis() - lastSip >= sipInterval && !negotiationActive)
-  {
-    // PRE-SIPHON DESK SWEEP:
-    // If the bus is quiet but there's "ghost data" in the buffer, kill it now.
-    while (nexSerial.available() > 0)
-      (void)nexSerial.read();
-
-    SIPHONER_ON();
-    captureGpsBurst();
-
-    // NEW: The Feeder Logic
-    if (siloReady)
+  /*
+    // --- 1. THE SIPHONER: 5s HEARTBEAT ---
+    // We only step out to the GPS if the 10s timer has expired AND the bus is quiet.
+    if (millis() - lastSip >= sipInterval && !negotiationActive)
     {
-      for (int i = 0; i < siloIndex; i++)
-      {
-        gps.encode(gpsSilo[i]); // Feed the TinyGPS engine
-      }
-      siloReady = false; // Reset for next time
-      siloIndex = 0;     // Clear the index
-    }
+      // PRE-SIPHON DESK SWEEP:
+      // If the bus is quiet but there's "ghost data" in the buffer, kill it now.
+      while (nexSerial.available() > 0)
+        (void)nexSerial.read();
 
-    LISTENER_ON();
-    lastSip = millis();
-  }
-*/
+      SIPHONER_ON();
+      captureGpsBurst();
+
+      // NEW: The Feeder Logic
+      if (siloReady)
+      {
+        for (int i = 0; i < siloIndex; i++)
+        {
+          gps.encode(gpsSilo[i]); // Feed the TinyGPS engine
+        }
+        siloReady = false; // Reset for next time
+        siloIndex = 0;     // Clear the index
+      }
+
+      LISTENER_ON();
+      lastSip = millis();
+    }
+  */
   // --- 2. THE LISTENER: Priority check for Mount commands ---
   processNexStar();
 
