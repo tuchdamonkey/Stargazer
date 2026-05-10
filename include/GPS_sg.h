@@ -5,7 +5,10 @@
 #include "Hardware_config.h"
 #include "Diagnostics.h"
 
+
+
 // --- GLOBALS & CONFIG ---
+#define SIPHON_WINDOW_MS 500
 #define SILO_SIZE 160
 char gpsSilo[SILO_SIZE];
 int siloIndex = 0;
@@ -19,6 +22,8 @@ const unsigned long carryInterval = 10000;
 extern char goldenPacket[85];
 extern volatile int bufIndex;
 extern volatile SystemState currentState;
+extern int siloIndex;
+bool siloReady = false;
 
 // === PROTOTYPES ===
 void setupGPS();
@@ -74,55 +79,45 @@ bool isChecksumValid(char *sentence)
 // --- 3. THE ATOMIC SILO CAPTURE ---
 void captureGpsBurst()
 {
-  // MANTRA: Check for GPS Start Bit. If HIGH, no data is ready.
-  // Exit immediately to give the NexStar Listener priority.
-  if (digitalRead(GPS_RX_PIN) == HIGH)
+  unsigned long startSiphon = millis();
+
+  // THE PERSISTENCE WINDOW
+  // Stay in this loop for 500ms OR until we fill a silo/get a newline
+  while (millis() - startSiphon < SIPHON_WINDOW_MS)
   {
-    return;
-  }
-
-  // --- SIP START ---
-  // If we are here, the pin is LOW. A byte is arriving.
-  char c = readRossByte();
-
-  // MANTRA GUARD: If NexStar speaks mid-siphon, we abandon ship.
-  if (digitalRead(NEX_RX_PIN) == LOW)
-  {
-    negotiationActive = true;
-    siloIndex = 0;
-    return;
-  }
-
-  // Guard against overflow
-  if (siloIndex < SILO_SIZE)
-  {
-    gpsSilo[siloIndex++] = c;
-  }
-
-  // Detection: End of burst (Look for the newline)
-  if (c == '\n' && siloIndex > 100)
-  {
-    char *rmcStart = strstr(gpsSilo, "$GPRMC");
-    char *ggaStart = strstr(gpsSilo, "$GPGGA");
-
-    if (rmcStart && ggaStart)
+    // MANTRA GUARD: Check NexStar Transmission (D5)
+    // Because of MOSFET inversion, HIGH = Bus Activity (Start Bit)
+    if (digitalRead(NEX_TX_PIN) == HIGH)
     {
-      if (isChecksumValid(rmcStart) && isChecksumValid(ggaStart))
-      {
-        siloReady = true;
-      }
-      else
-      {
-        siloReady = false; // Checksum failed
-      }
+      negotiationActive = true;
+      siloIndex = 0;
+      return; // Immediate exit to NexStar Pillar
     }
 
-    // IMPORTANT: Reset siloIndex for the NEXT burst
-    // This turns the bucket back over to start fresh.
-    siloIndex = 0;
-    // Note: we don't memset here to save cycles; the next burst will overwrite.
+    // Check if a GPS Start Bit (LOW) is present
+    if (digitalRead(GPS_RX_PIN) == LOW)
+    {
+      char c = readRossByte();
+
+      if (siloIndex < SILO_SIZE)
+      {
+        gpsSilo[siloIndex++] = c;
+      }
+
+      // If we finish a sentence, we can leave early!
+      if (c == '\n') 
+      {
+          if (siloIndex > 20) // Safety: ensure we didn't just grab a stray newline
+          {
+              gpsSilo[siloIndex] = '\0'; // Null-terminate for string safety
+              siloReady = true; 
+              break; // Success! Exit the 500ms window immediately
+          }
+      }
+    }
   }
 }
+
 
 // --- 4. HARDWARE SETUP & UTILS ---
 void rossWrite(char c)
