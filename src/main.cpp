@@ -37,7 +37,7 @@ void setup()
   
   Serial.begin(115200);
   nexSerial.begin(19200);
-  // nexTalker.begin(19200); // If soss has a begin
+  nexTalker.begin(19200);
   setupGPS();
   Serial.println(F("--- StarGazer v1.0: Ross/Soss Stage 1 ---"));
 
@@ -47,7 +47,7 @@ void setup()
 
 void loop()
 {
-
+/*
   // --- 1. THE SIPHONER: 5s HEARTBEAT ---
   // We only step out to the GPS if the 10s timer has expired AND the bus is quiet.
   if (millis() - lastSip >= sipInterval && !negotiationActive)
@@ -74,7 +74,7 @@ void loop()
     LISTENER_ON();
     lastSip = millis();
   }
-
+*/
   // --- 2. THE LISTENER: Priority check for Mount commands ---
   processNexStar();
 

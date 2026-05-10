@@ -1,44 +1,13 @@
 /*
-
- SendOnlySoftwareSerial - adapted from SoftwareSerial by Nick Gammon 28th June 2012
-
-SoftwareSerial.h (formerly NewSoftSerial.h) -
-Multi-instance software serial library for Arduino/Wiring
--- Interrupt-driven receive and other improvements by ladyada
-   (http://ladyada.net)
--- Tuning, circular buffer, derivation from class Print/Stream,
-   multi-instance support, porting to 8MHz processors,
-   various optimizations, PROGMEM delay tables, inverse logic and
-   direct port writing by Mikal Hart (http://www.arduiniana.org)
--- Pin change interrupt macros by Paul Stoffregen (http://www.pjrc.com)
--- 20MHz processor support by Garrett Mace (http://www.macetech.com)
--- ATmega1280/2560 support by Brett Hagman (http://www.roguerobotics.com/)
-
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
-
-This library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-*/
+ * soss.h - Send-Only Software Serial (Optimized for StarGazer)
+ * Isolated for standard logic transmission on D4.
+ */
 
 #ifndef SOSS_H
 #define SOSS_H
 
 #include <inttypes.h>
 #include <Stream.h>
-
-/******************************************************************************
-* Definitions
-******************************************************************************/
 
 #ifndef GCC_VERSION
 #define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
@@ -47,37 +16,40 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 class soss : public Stream
 {
 private:
-	// per object data
-	uint8_t _transmitBitMask;
-	volatile uint8_t *_transmitPortRegister;
+    // --- Physical Hardware Mapping ---
+    uint8_t _transmitPin;           // Tracked for begin() calls
+    uint8_t _transmitBitMask;
+    volatile uint8_t *_transmitPortRegister;
 
-	uint16_t _tx_delay;
+    // --- Timing & Logic ---
+    uint16_t _tx_delay;
+    uint8_t _inverse_logic : 1;     // Use bitfields for memory efficiency
+    uint8_t _errors_ok : 1;
 
-	uint16_t _inverse_logic;
-	uint16_t _errors_ok;
+    // --- Private Hardware Methods ---
+    void tx_pin_write(uint8_t pin_state);
+    void setTX(uint8_t transmitPin);
 
-	// private methods
-	void tx_pin_write(uint8_t pin_state);
-	void setTX(uint8_t transmitPin);
-
-	// private static method for timing
-	static inline void tunedDelay(uint16_t delay);
+    // --- High-Precision Timing ---
+    static inline void tunedDelay(uint16_t delay);
 
 public:
-	// public methods
-	soss(uint8_t transmitPin, bool inverse_logic = false, bool errors_ok = false);
-	~soss();
-	void begin(long speed);
-	void end();
-	int peek();
+    // Constructor: Needs pin and logic preference
+    soss(uint8_t transmitPin, bool inverse_logic = false, bool errors_ok = false);
+    ~soss();
 
-	virtual size_t write(uint8_t byte);
-	virtual int read();
-	virtual int available();
-	virtual void flush();
+    // Mandatory Lifecycle Methods
+    void begin(long speed);
+    void end();
 
-	using Print::write;
+    // Stream Implementation (Mouth only, so these are dummy stubs)
+    virtual size_t write(uint8_t byte);
+    virtual int read() { return -1; }
+    virtual int available() { return 0; }
+    virtual int peek() { return -1; }
+    virtual void flush() { /* No buffer to flush */ }
+
+    using Print::write;
 };
 
-// Arduino 0012 workaround
 #endif  // SOSS_H
