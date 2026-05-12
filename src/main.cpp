@@ -12,7 +12,6 @@
 // NOTE: See HEAD: "STABLE TX RX - voidprocessNexstar stable, rectified TX polarity" for code prior to GPS MUZZLE!!
 //================================================================================================================
 
-
 extern uint8_t nexPayload_Lat[3];
 extern uint8_t nexPayload_Lon[3];
 extern uint8_t nexPayload_Date[4];
@@ -39,11 +38,10 @@ const unsigned long sipInterval = 5000; // 10-second "Siphon" rhythm
 ross nexSerial(NEX_TX_PIN, false);
 soss nexTalker(NEX_RX_PIN, false);
 
-
 void setup()
 {
   Serial.begin(115200);
-  
+
   // Ross/Soss Initialization
   nexSerial.begin(19200);
   nexTalker.begin(19200);
@@ -57,10 +55,10 @@ void setup()
   Serial.println(F("--- StarGazer v1.0: Ross/Soss Stage 1 ---"));
 
   INIT_DIAGNOSTICS();
-  
+
   // FORCE PRIORITY: Ensure ross is the active SoftwareSerial listener
   nexSerial.listen();
-  LISTENER_ON(); 
+  LISTENER_ON();
 }
 
 void loop()
@@ -74,8 +72,7 @@ void loop()
     syncEventAnchor([]()
                     {
         packNEXCoord(gps.location.lat(), nexPayload_Lat[0], nexPayload_Lat[1], nexPayload_Lat[2]);
-        packNEXCoord(gps.location.lng(), nexPayload_Lon[0], nexPayload_Lon[1], nexPayload_Lon[2]); 
-    });
+        packNEXCoord(gps.location.lng(), nexPayload_Lon[0], nexPayload_Lon[1], nexPayload_Lon[2]); });
   }
 
   // HEARTBEAT
