@@ -63,7 +63,7 @@ void processNexStar()
         {
             // --- SMART STRIKE ---
             // We only drop D7 if we actually identify the NexStar Start Byte
-            SIPHONER_ON(); 
+            SIPHONER_ON();
 
             negotiationActive = true;
             (void)nexSerial.read(); // Consume the 0x3B
@@ -90,15 +90,14 @@ void processNexStar()
                 if (cmd == CMD_GET_VER)
                 {
                     syncEventAnchor([]()
-                    {
+                                    {
                         uint8_t verResp[] = {0x05, ADDR_GPS, ADDR_HC, CMD_GET_VER, 0x01, 0x04};
-                        sendNexPacket(verResp, 6); 
-                    });
+                        sendNexPacket(verResp, 6); });
                 }
                 else if (cmd == CMD_GET_LOC)
                 {
                     syncEventAnchor([]()
-                    {
+                                    {
                         uint8_t locResp[10];
                         locResp[0] = 0x09;
                         locResp[1] = ADDR_GPS;
@@ -106,8 +105,7 @@ void processNexStar()
                         locResp[3] = CMD_GET_LOC;
                         memcpy(&locResp[4], nexPayload_Lat, 3);
                         memcpy(&locResp[7], nexPayload_Lon, 3);
-                        sendNexPacket(locResp, 10); 
-                    });
+                        sendNexPacket(locResp, 10); });
                 }
                 // DELIVERY COMPLETE
                 negotiationActive = false;
