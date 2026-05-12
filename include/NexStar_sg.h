@@ -52,8 +52,7 @@ void sendNexPacket(uint8_t *p, uint8_t len)
     uint8_t chk = calculateNEXChecksum(fullPacket, len + 2);
     nexTalker.write(chk);
 }
-
-vvoid processNexStar()
+void processNexStar()
 {
     if (nexSerial.available() > 0)
     {
@@ -69,42 +68,36 @@ vvoid processNexStar()
             negotiationActive = true;
             (void)nexSerial.read(); // Consume the 0x3B
 
-            // ... the rest of your header/parsing logic continues here ...
-        }
-    }
-    // ... rest of the function ...
-}
+            // 3. SAFETY GATE: Wait for the 4-byte header
+            unsigned long headerStart = millis();
+            while (nexSerial.available() < 4)
+            {
+                if (millis() - headerStart > NEX_TIMEOUT_MS)
+                {
+                    return;
+                }
+            }
 
-// 3. SAFETY GATE: Wait for the 4-byte header
-unsigned long headerStart = millis();
-while (nexSerial.available() < 4)
-{
-    if (millis() - headerStart > NEX_TIMEOUT_MS)
-    {
-        return;
-    }
-}
+            (void)nexSerial.read(); // Len
+            (void)nexSerial.read(); // Src
+            uint8_t dest = nexSerial.read();
+            uint8_t cmd = nexSerial.read();
 
-(void)nexSerial.read(); // Len
-(void)nexSerial.read(); // Src
-uint8_t dest = nexSerial.read();
-uint8_t cmd = nexSerial.read();
+            if (dest == ADDR_GPS)
+            {
+                pulseComprehension(); // Optional: Second diagnostic pulse if desired
 
-if (dest == ADDR_GPS)
-{
-    pulseComprehension(); // Optional: Second diagnostic pulse if desired
-
-    if (cmd == CMD_GET_VER)
-    {
-        syncEventAnchor([]()
-                        {
+                if (cmd == CMD_GET_VER)
+                {
+                    syncEventAnchor([]()
+                                    {
                         uint8_t verResp[] = {0x05, ADDR_GPS, ADDR_HC, CMD_GET_VER, 0x01, 0x04};
                         sendNexPacket(verResp, 6); });
-    }
-    else if (cmd == CMD_GET_LOC)
-    {
-        syncEventAnchor([]()
-                        {
+                }
+                else if (cmd == CMD_GET_LOC)
+                {
+                    syncEventAnchor([]()
+                                    {
                         uint8_t locResp[10];
                         locResp[0] = 0x09;
                         locResp[1] = ADDR_GPS;
@@ -113,27 +106,27 @@ if (dest == ADDR_GPS)
                         memcpy(&locResp[4], nexPayload_Lat, 3);
                         memcpy(&locResp[7], nexPayload_Lon, 3);
                         sendNexPacket(locResp, 10); });
+                }
+                // DELIVERY COMPLETE
+                negotiationActive = false;
+                while (nexSerial.available() > 0)
+                    (void)nexSerial.read(); // Clear "Echoes"
+            }
+        }
+        else
+        {
+            // If it's not a Preamble, it's noise/garbage—clear it so it doesn't jam the buffer
+            (void)nexSerial.read();
+        }
     }
-    // DELIVERY COMPLETE
-    negotiationActive = false;
-    while (nexSerial.available() > 0)
-        (void)nexSerial.read(); // Clear "Echoes"
-}
-}
-else
-{
-    // If it's not a Preamble, it's noise/garbage—clear it so it doesn't jam the buffer
-    (void)nexSerial.read();
-}
-}
 
-// --- THE SILENCE-BASED BUFFER WIPE ---
-if (negotiationActive && (millis() - lastNexByteTime > NEX_SILENCE_GAP))
-{
-    negotiationActive = false;
-    while (nexSerial.available() > 0)
-        (void)nexSerial.read();
-}
+    // --- THE SILENCE-BASED BUFFER WIPE ---
+    if (negotiationActive && (millis() - lastNexByteTime > NEX_SILENCE_GAP))
+    {
+        negotiationActive = false;
+        while (nexSerial.available() > 0)
+            (void)nexSerial.read();
+    }
 }
 
 #endif
