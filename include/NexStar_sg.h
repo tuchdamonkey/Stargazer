@@ -58,7 +58,7 @@ void processNexStar()
     // 1. DATA TRACKING: If data is present, update our "Last Seen" timestamp
     if (nexSerial.available() > 0)
     {
-        lastNexByteTime = millis();
+        SIPHONER_ON(); //GPS DEBUG MUZZLE: REPLACES lastNexByteTime = millis();
 
         // Check for the Preamble
         if (nexSerial.peek() == PREAMBLE)

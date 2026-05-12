@@ -12,6 +12,7 @@
 
 #define DIAGNOSTIC_MODE // Comment this out to disable all D7 activity for "Field Ready" builds
 
+
 #ifdef DIAGNOSTIC_MODE
     // --- 1. HARDWARE INIT ---
     // Sets D7 as Output via the Data Direction Register
