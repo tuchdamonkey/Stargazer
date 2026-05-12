@@ -8,6 +8,11 @@
 #include "GPS_sg.h"
 #include "NexStar_sg.h"
 
+//================================================================================================================
+// NOTE: See HEAD: "STABLE TX RX - voidprocessNexstar stable, rectified TX polarity" for code prior to GPS MUZZLE!!
+//================================================================================================================
+
+
 extern uint8_t nexPayload_Lat[3];
 extern uint8_t nexPayload_Lon[3];
 extern uint8_t nexPayload_Date[4];
@@ -21,6 +26,10 @@ volatile int bufIndex = 0;
 volatile bool packetReady = false;
 char goldenPacket[85];
 
+// --- Temporary Diagnostic Muzzle ---
+// Set to true to suspend all GPS background activity for Task 2.1 testing.
+bool gpsMuzzle = true;
+
 // --- System State Flags ---
 bool muzzleActive = false;
 bool negotiationActive = false;
@@ -30,102 +39,46 @@ const unsigned long sipInterval = 5000; // 10-second "Siphon" rhythm
 ross nexSerial(NEX_TX_PIN, false);
 soss nexTalker(NEX_RX_PIN, false);
 
+
 void setup()
 {
-
   Serial.begin(115200);
+  
+  // Ross/Soss Initialization
   nexSerial.begin(19200);
   nexTalker.begin(19200);
-  setupGPS();
+
+  // Muzzle Check: Only setup GPS if muzzle is false
+  if (!gpsMuzzle)
+  {
+    setupGPS();
+  }
+
   Serial.println(F("--- StarGazer v1.0: Ross/Soss Stage 1 ---"));
 
   INIT_DIAGNOSTICS();
-  LISTENER_ON(); // == DIAGNOSTIC TOOL ===D7 High: We boot into Listener-First posture
+  
+  // FORCE PRIORITY: Ensure ross is the active SoftwareSerial listener
+  nexSerial.listen();
+  LISTENER_ON(); 
 }
 
 void loop()
 {
-
-  /*
-    // --- 1. THE SIPHONER: 5s HEARTBEAT ---
-    // We only step out to the GPS if the 10s timer has expired AND the bus is quiet.
-    if (millis() - lastSip >= sipInterval && !negotiationActive)
-    {
-      // PRE-SIPHON DESK SWEEP:
-      // If the bus is quiet but there's "ghost data" in the buffer, kill it now.
-      while (nexSerial.available() > 0)
-        (void)nexSerial.read();
-
-      SIPHONER_ON();
-      captureGpsBurst();
-
-      // NEW: The Feeder Logic
-      if (siloReady)
-      {
-        for (int i = 0; i < siloIndex; i++)
-        {
-          gps.encode(gpsSilo[i]); // Feed the TinyGPS engine
-        }
-        siloReady = false; // Reset for next time
-        siloIndex = 0;     // Clear the index
-      }
-
-      LISTENER_ON();
-      lastSip = millis();
-    }
-  */
-  // --- 2. THE LISTENER: Priority check for Mount commands ---
+  // 1. THE LISTENER: Priority check for Mount commands
   processNexStar();
 
-  // --- 3. THE TRANSLATOR: Update the 24-bit cache when GPS is fresh ---
-  if (gps.location.isUpdated())
+  // 2. THE TRANSLATOR: Only runs if muzzle is OFF
+  if (!gpsMuzzle && gps.location.isUpdated())
   {
     syncEventAnchor([]()
                     {
-        // Translate Lat and store in the Lat bucket
         packNEXCoord(gps.location.lat(), nexPayload_Lat[0], nexPayload_Lat[1], nexPayload_Lat[2]);
-        
-        // Translate Lon and store in the Lon bucket
-        packNEXCoord(gps.location.lng(), nexPayload_Lon[0], nexPayload_Lon[1], nexPayload_Lon[2]); });
-
-    // PROOF OF CARRY: Log update status (Internal Diagnostics)
-    static unsigned long lastProof = 0;
-    if (millis() - lastProof > 10000)
-    {
-      Serial.print(F("PAYLOAD_VERIFIED | "));
-
-      // Print Lat
-      Serial.print(F("Lat: "));
-      for (int i = 0; i < 3; i++)
-        Serial.print(nexPayload_Lat[i], HEX);
-
-      // Print UTC Time from TinyGPS++
-      Serial.print(F(" | UTC: "));
-      if (gps.time.isValid())
-      {
-        if (gps.time.hour() < 10)
-          Serial.print(F("0"));
-        Serial.print(gps.time.hour());
-        Serial.print(F(":"));
-        if (gps.time.minute() < 10)
-          Serial.print(F("0"));
-        Serial.print(gps.time.minute());
-        Serial.print(F(":"));
-        if (gps.time.second() < 10)
-          Serial.print(F("0"));
-        Serial.print(gps.time.second());
-      }
-      else
-      {
-        Serial.print(F("WAITING_FOR_FIX"));
-      }
-
-      Serial.println();
-      lastProof = millis();
-    }
+        packNEXCoord(gps.location.lng(), nexPayload_Lon[0], nexPayload_Lon[1], nexPayload_Lon[2]); 
+    });
   }
 
-  // HEARTBEAT: Proof of loop stability
+  // HEARTBEAT
   static unsigned long lastHeartbeat = 0;
   if (millis() - lastHeartbeat > 5000)
   {
