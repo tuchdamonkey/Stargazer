@@ -54,16 +54,17 @@ void sendNexPacket(uint8_t *p, uint8_t len)
 }
 void processNexStar()
 {
+    // 1. DUMB ENTRY: If the ear hears ANYTHING, drop the line to LOW
     if (nexSerial.available() > 0)
     {
-        // 1. UPDATE THE CLOCK
-        lastNexByteTime = millis();
+        SIPHONER_ON();              // D7 -> LOW (Starting the "Logic Window")
+        lastNexByteTime = millis(); // Reset the silence clock
 
-        // 2. The Semi-Smart Strike
+        // 2. THE RECOGNITION CHECK
         if (nexSerial.peek() == PREAMBLE)
         {
-            // --- SMART STRIKE ---
-            SIPHONER_ON();
+            // --- SUCCESS EXIT ---
+            LISTENER_ON(); // D7 -> HIGH (Closing the "Logic Window")
 
             negotiationActive = true;
             (void)nexSerial.read(); // Consume the 0x3B
@@ -74,7 +75,7 @@ void processNexStar()
             {
                 if (millis() - headerStart > NEX_TIMEOUT_MS)
                 {
-                    return;
+                    return; // Timeout will be handled by the Silence-Based Wipe
                 }
             }
 
@@ -85,7 +86,8 @@ void processNexStar()
 
             if (dest == ADDR_GPS)
             {
-                pulseComprehension(); // Optional: Second diagnostic pulse if desired
+                // Optional diagnostic pulse if you want to see the "Brain" working deeper
+                pulseComprehension();
 
                 if (cmd == CMD_GET_VER)
                 {
@@ -107,7 +109,8 @@ void processNexStar()
                         memcpy(&locResp[7], nexPayload_Lon, 3);
                         sendNexPacket(locResp, 10); });
                 }
-                // DELIVERY COMPLETE
+
+                // DELIVERY COMPLETE: Transaction ended successfully
                 negotiationActive = false;
                 while (nexSerial.available() > 0)
                     (void)nexSerial.read(); // Clear "Echoes"
@@ -115,15 +118,17 @@ void processNexStar()
         }
         else
         {
-            // If it's not a Preamble, it's noise/garbage—clear it so it doesn't jam the buffer
+            // If it's not a Preamble, it's noise/shifted bits—trash it and move on
             (void)nexSerial.read();
+            // Note: D7 stays LOW until the next loop finds a Preamble or the bus goes silent
         }
     }
 
-    // --- THE SILENCE-BASED BUFFER WIPE ---
-    if (negotiationActive && (millis() - lastNexByteTime > NEX_SILENCE_GAP))
+    // --- THE SILENCE-BASED BUFFER WIPE & RESET ---
+    if (millis() - lastNexByteTime > NEX_SILENCE_GAP)
     {
         negotiationActive = false;
+        LISTENER_ON(); // Ensure D7 returns HIGH if the bus stays dead
         while (nexSerial.available() > 0)
             (void)nexSerial.read();
     }
