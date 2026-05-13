@@ -63,25 +63,10 @@ void setup()
 
 void loop()
 {
-  // 1. THE LISTENER: Priority check for Mount commands
+
   processNexStar();
 
-  // 2. THE TRANSLATOR: Only runs if muzzle is OFF
-  if (!gpsMuzzle && gps.location.isUpdated())
-  {
-    syncEventAnchor([]()
-                    {
-        packNEXCoord(gps.location.lat(), nexPayload_Lat[0], nexPayload_Lat[1], nexPayload_Lat[2]);
-        packNEXCoord(gps.location.lng(), nexPayload_Lon[0], nexPayload_Lon[1], nexPayload_Lon[2]); });
-  }
-
-  // HEARTBEAT
-  static unsigned long lastHeartbeat = 0;
-  if (millis() - lastHeartbeat > 5000)
-  {
-    Serial.println(F("BRAIN_CHECK: Looping..."));
-    lastHeartbeat = millis();
-  }
+  
 }
 
 //==================================================
