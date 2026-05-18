@@ -52,11 +52,13 @@ inline void translateAndPack(float coord, bool isLongitude)
 
 void setupNexStar()
 {
+    nexTalker.begin(19200);
     nexSerial.begin(19200);
     // --- NANO RECEIVE PATH (D5) ---
     // From Nex perspective: NEX_TX_PIN.
     // This pin connects to the 6N137 output. It must be an INPUT.
     // We leave it alone so it can sit at its hardware-driven, inverted idle-LOW state.
+
     pinMode(NEX_TX_PIN, INPUT);
 
     // --- NANO TRANSMIT PATH (D4) ---
@@ -64,6 +66,7 @@ void setupNexStar()
     // This pin connects directly to the shared telescope bus through R9.
     // We must drive it HIGH as an active OUTPUT immediately to match
     // the telescope's native 5V idle, stopping it from sagging the bus at boot.
+
     pinMode(NEX_RX_PIN, OUTPUT);
     digitalWrite(NEX_RX_PIN, HIGH);
 }
@@ -79,28 +82,28 @@ uint8_t calculateChecksum(uint8_t *p, uint8_t len)
 void sendNexPacket(uint8_t *p, uint8_t len)
 {
     // Ensure the pin is explicitly configured to drive the line
-    pinMode(NEX_TX_PIN, OUTPUT);
+    pinMode(NEX_RX_PIN, OUTPUT);
 
     // USE nexTalker (soss) for Transmitting
-    nexTalker.write(PREAMBLE);
+    nexSerial.write(PREAMBLE);
     for (uint8_t i = 0; i < len; i++)
     {
-        nexTalker.write(p[i]);
+        nexSerial.write(p[i]);
     }
 
     uint8_t chk = calculateChecksum(p, len);
-    nexTalker.write(chk);
+    nexSerial.write(chk);
 
     // Active Idle Realignment: Force the pin HIGH and maintain OUTPUT status.
     // This shuts off the 6N137 LED, completely releasing the physical Aux Bus.
-    digitalWrite(NEX_TX_PIN, HIGH);
-    pinMode(NEX_TX_PIN, OUTPUT);
+    digitalWrite(NEX_RX_PIN, HIGH);
+    pinMode(NEX_RX_PIN, OUTPUT);
 }
 void processNexStar()
 {
-    if (nexSerial.available() > 0)
+    if (nexTalker.available() > 0)
     {
-        if (nexSerial.read() == PREAMBLE)
+        if (nexTalker.read() == PREAMBLE)
         {
             // We've found the start; Nano is now "attending" to the bus
             negotiationActive = true;
@@ -111,7 +114,7 @@ void processNexStar()
 
             if (dest == ADDR_GPS)
             {
-                uint8_t cmd = nexSerial.read();
+                uint8_t cmd = nexTalker.read();
 
                 if (cmd == CMD_GET_VER)
                 {

@@ -87,7 +87,7 @@ void captureGpsBurst()
   if (siloIndex < SILO_SIZE)
   {
     gpsSilo[siloIndex++] = c;
-    toggleDiagnostic(); // Pulse D7 to show "Siphoning" activity
+    // toggleDiagnostic(); // Pulse D7 to show "Siphoning" activity
   }
 
   // Detection: End of burst (Look for the newline)
