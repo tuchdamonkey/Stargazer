@@ -27,8 +27,12 @@ soss nexTalker(NEX_TX_PIN);
 
 void setup()
 {
+  pinMode(NEX_TX_PIN, OUTPUT);
+  digitalWrite(NEX_TX_PIN, HIGH);
+
   Serial.begin(115200);
   nexSerial.begin(19200);
+
   // nexTalker.begin(19200); // If soss has a begin
   setupGPS();
   Serial.println(F("--- StarGazer v1.0: Ross/Soss Stage 1 ---"));
@@ -90,8 +94,8 @@ void syncEventAnchor(void (*func)())
 {
   if (func != nullptr)
   {
-    SYNC_HIGH(); // Enter Locked State
-    func();      // Execute NexStar Response
-    SYNC_LOW();  // Exit Locked State
+    // Diagnostics Overhaul: Bypassed SYNC_HIGH() and SYNC_LOW() macros
+    // to leave the D7 physical pin completely inert on the logic analyzer.
+    func(); // Execute NexStar Response directly
   }
 }

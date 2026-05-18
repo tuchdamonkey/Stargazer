@@ -82,7 +82,7 @@ void captureGpsBurst()
   // --- SIP START ---
   // If we are here, the pin is LOW. A byte is arriving.
   char c = readRossByte();
-  
+
   // Guard against overflow
   if (siloIndex < SILO_SIZE)
   {
@@ -106,16 +106,11 @@ void captureGpsBurst()
       }
       else
       {
-        // Failure: Quick stutter on D7
-        for (int i = 0; i < 6; i++)
-        {
-          toggleDiagnostic();
-          delayMicroseconds(500);
-        }
+
         siloReady = false;
       }
     }
-    
+
     // IMPORTANT: Reset siloIndex for the NEXT burst
     // This turns the bucket back over to start fresh.
     siloIndex = 0;

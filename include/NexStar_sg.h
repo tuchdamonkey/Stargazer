@@ -54,8 +54,11 @@ void setupNexStar()
 {
     nexSerial.begin(19200);
     pinMode(NEX_RX_PIN, INPUT_PULLUP);
-    pinMode(NEX_TX_PIN, INPUT); // v1.0 Ghost Mode default
-    digitalWrite(NEX_TX_PIN, LOW);
+
+    // Active-HIGH Overhaul: Force D5 to output a steady HIGH state at boot.
+    // This shuts off the 6N137 LED, releasing the Aux Bus immediately.
+    pinMode(NEX_TX_PIN, OUTPUT);
+    digitalWrite(NEX_TX_PIN, HIGH);
 }
 
 uint8_t calculateChecksum(uint8_t *p, uint8_t len)
@@ -68,6 +71,7 @@ uint8_t calculateChecksum(uint8_t *p, uint8_t len)
 
 void sendNexPacket(uint8_t *p, uint8_t len)
 {
+    // Ensure the pin is explicitly configured to drive the line
     pinMode(NEX_TX_PIN, OUTPUT);
 
     // USE nexTalker (soss) for Transmitting
@@ -80,11 +84,11 @@ void sendNexPacket(uint8_t *p, uint8_t len)
     uint8_t chk = calculateChecksum(p, len);
     nexTalker.write(chk);
 
-    // Ghost Mode: Return to High-Impedance immediately.
-    // We remove the digitalWrite(LOW) to avoid interfering with the Bus voltage.
-    pinMode(NEX_TX_PIN, INPUT);
+    // Active Idle Realignment: Force the pin HIGH and maintain OUTPUT status.
+    // This shuts off the 6N137 LED, completely releasing the physical Aux Bus.
+    digitalWrite(NEX_TX_PIN, HIGH);
+    pinMode(NEX_TX_PIN, OUTPUT);
 }
-
 void processNexStar()
 {
     if (nexSerial.available() > 0)
