@@ -9,8 +9,8 @@
 #include "AstroLogic.h"
 #include "Diagnostics.h"
 
-extern ross nexSerial;
-extern soss nexTalker;
+extern soss nexSerial;
+extern ross nexTalker;
 extern bool negotiationActive;
 extern void syncEventAnchor(void (*func)());
 
@@ -53,12 +53,19 @@ inline void translateAndPack(float coord, bool isLongitude)
 void setupNexStar()
 {
     nexSerial.begin(19200);
-    pinMode(NEX_RX_PIN, INPUT_PULLUP);
+    // --- NANO RECEIVE PATH (D5) ---
+    // From Nex perspective: NEX_TX_PIN.
+    // This pin connects to the 6N137 output. It must be an INPUT.
+    // We leave it alone so it can sit at its hardware-driven, inverted idle-LOW state.
+    pinMode(NEX_TX_PIN, INPUT);
 
-    // Active-HIGH Overhaul: Force D5 to output a steady HIGH state at boot.
-    // This shuts off the 6N137 LED, releasing the Aux Bus immediately.
-    pinMode(NEX_TX_PIN, OUTPUT);
-    digitalWrite(NEX_TX_PIN, HIGH);
+    // --- NANO TRANSMIT PATH (D4) ---
+    // From Nex perspective: NEX_RX_PIN.
+    // This pin connects directly to the shared telescope bus through R9.
+    // We must drive it HIGH as an active OUTPUT immediately to match
+    // the telescope's native 5V idle, stopping it from sagging the bus at boot.
+    pinMode(NEX_RX_PIN, OUTPUT);
+    digitalWrite(NEX_RX_PIN, HIGH);
 }
 
 uint8_t calculateChecksum(uint8_t *p, uint8_t len)

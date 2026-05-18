@@ -22,15 +22,17 @@ bool negotiationActive = false;
 unsigned long lastSip = 0;
 const int sipInterval = 3000;
 
-ross nexSerial(NEX_RX_PIN);
-soss nexTalker(NEX_TX_PIN);
+soss nexSerial(NEX_RX_PIN, false);
+ross nexTalker(NEX_TX_PIN, true);
 
 void setup()
 {
-  pinMode(NEX_TX_PIN, OUTPUT);
-  digitalWrite(NEX_TX_PIN, HIGH);
+  pinMode(NEX_RX_PIN, OUTPUT);
+  digitalWrite(NEX_RX_PIN, HIGH);
+  pinMode(NEX_TX_PIN, INPUT);
 
   Serial.begin(115200);
+  nexTalker.begin(19200);
   nexSerial.begin(19200);
 
   // nexTalker.begin(19200); // If soss has a begin
