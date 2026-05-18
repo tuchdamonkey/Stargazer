@@ -22,8 +22,8 @@ bool negotiationActive = false;
 unsigned long lastSip = 0;
 const int sipInterval = 3000;
 
-soss nexSerial(NEX_RX_PIN, false);
 ross nexTalker(NEX_TX_PIN, true);
+soss nexSerial(NEX_RX_PIN, false);
 
 void setup()
 {
@@ -35,7 +35,6 @@ void setup()
   nexTalker.begin(19200);
   nexSerial.begin(19200);
 
-  // nexTalker.begin(19200); // If soss has a begin
   setupGPS();
   Serial.println(F("--- StarGazer v1.0: Ross/Soss Stage 1 ---"));
 
