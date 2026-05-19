@@ -99,76 +99,64 @@ void sendNexPacket(uint8_t *p, uint8_t len)
 void processNexStar()
 {
 
-    // Pure, unfiltered hardware stream output
-    if (nexTalker.available() > 0)
+    // Check if at least a minimal header has landed in the stream buffer
+    if (nexTalker.available() >= 2)
     {
-        uint8_t rawByte = nexTalker.read();
+        // Verify the preamble alignment frame
+        if (nexTalker.peek() == PREAMBLE)
+        {
+            nexTalker.read();               // Consume Preamble (0x3B)
+            uint8_t len = nexTalker.read(); // Extract the designated Length byte (0x03)
 
-        Serial.print(F("RAW_D5: 0x"));
-        if (rawByte < 0x10)
-            Serial.print('0');
-        Serial.println(rawByte, HEX);
+            // CRITICAL TIMING GATE: Wait for the trailing payload + checksum byte
+            unsigned long timeout = millis();
+            while (nexTalker.available() < (len + 1))
+            {
+                if (millis() - timeout > 15) // Lifted to 15ms to tolerate GPS bit-bang overlap
+                {
+                    Serial.println(F("--- HANDSHAKE ERROR: Packet Truncated ---"));
+                    return;
+                }
+            }
+
+            // Ingest the remaining packet body into a secure local storage array
+            uint8_t rxBuf[12];
+            for (uint8_t i = 0; i < (len + 1); i++)
+            {
+                rxBuf[i] = nexTalker.read();
+            }
+
+            // Map variables cleanly based on fixed offset indices:
+            // rxBuf[0] = Source Address (0x0D)
+            // rxBuf[1] = Destination Address (0xB0)
+            // rxBuf[2] = Command Identification (0xFE)
+            // rxBuf[3] = Checksum Frame (0x42)
+            uint8_t dest = rxBuf[1];
+            uint8_t cmd = rxBuf[2];
+
+            if (dest == ADDR_GPS)
+            {
+                if (cmd == CMD_GET_VER)
+                {
+                    negotiationActive = true;
+
+                    // Response structure payload: Len, Src, Dest, Cmd, VerMajor, VerMinor
+                    uint8_t verResp[] = {0x05, ADDR_GPS, ADDR_HC, CMD_GET_VER, 0x01, 0x02};
+
+                    // Direct main thread invocation to shield against lambda capture issues
+                    sendNexPacket(verResp, 6);
+
+                    Serial.println(F(">>> v1.4: Handshake Response Fired! <<<"));
+                    negotiationActive = false;
+                }
+            }
+        }
+        else
+        {
+            // If the buffer alignment slips, clear individual junk bytes to scroll forward
+            nexTalker.read();
+        }
     }
-    /*
-     // Check if at least a minimal header has landed in the stream buffer
-      if (nexTalker.available() >= 2)
-      {
-          // Verify the preamble alignment frame
-          if (nexTalker.peek() == PREAMBLE)
-          {
-              nexTalker.read();               // Consume Preamble (0x3B)
-              uint8_t len = nexTalker.read(); // Extract the designated Length byte (0x03)
-
-              // CRITICAL TIMING GATE: Wait for the trailing payload + checksum byte
-              unsigned long timeout = millis();
-              while (nexTalker.available() < (len + 1))
-              {
-                  if (millis() - timeout > 15) // Lifted to 15ms to tolerate GPS bit-bang overlap
-                  {
-                      Serial.println(F("--- HANDSHAKE ERROR: Packet Truncated ---"));
-                      return;
-                  }
-              }
-
-              // Ingest the remaining packet body into a secure local storage array
-              uint8_t rxBuf[12];
-              for (uint8_t i = 0; i < (len + 1); i++)
-              {
-                  rxBuf[i] = nexTalker.read();
-              }
-
-              // Map variables cleanly based on fixed offset indices:
-              // rxBuf[0] = Source Address (0x0D)
-              // rxBuf[1] = Destination Address (0xB0)
-              // rxBuf[2] = Command Identification (0xFE)
-              // rxBuf[3] = Checksum Frame (0x42)
-              uint8_t dest = rxBuf[1];
-              uint8_t cmd = rxBuf[2];
-
-              if (dest == ADDR_GPS)
-              {
-                  if (cmd == CMD_GET_VER)
-                  {
-                      negotiationActive = true;
-
-                      // Response structure payload: Len, Src, Dest, Cmd, VerMajor, VerMinor
-                      uint8_t verResp[] = {0x05, ADDR_GPS, ADDR_HC, CMD_GET_VER, 0x01, 0x02};
-
-                      // Direct main thread invocation to shield against lambda capture issues
-                      sendNexPacket(verResp, 6);
-
-                      Serial.println(F(">>> v1.4: Handshake Response Fired! <<<"));
-                      negotiationActive = false;
-                  }
-              }
-          }
-          else
-          {
-              // If the buffer alignment slips, clear individual junk bytes to scroll forward
-              nexTalker.read();
-          }
-      }
-  */
 }
 
 #endif
