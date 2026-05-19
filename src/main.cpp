@@ -22,7 +22,7 @@ bool negotiationActive = false;
 unsigned long lastSip = 0;
 const int sipInterval = 3000;
 
-ross nexTalker(NEX_TX_PIN, true);
+ross nexTalker(NEX_TX_PIN, false);
 soss nexSerial(NEX_RX_PIN, false);
 
 void setup()

@@ -99,40 +99,66 @@ void sendNexPacket(uint8_t *p, uint8_t len)
     digitalWrite(NEX_RX_PIN, HIGH);
     pinMode(NEX_RX_PIN, OUTPUT);
 }
+
 void processNexStar()
 {
-    if (nexTalker.available() > 0)
+    // Check if at least a minimal packet header has arrived (Preamble + Length)
+    if (nexTalker.available() >= 2)
     {
-        if (nexTalker.read() == PREAMBLE)
+        // Peek at the first byte without consuming it to verify the preamble
+        if (nexTalker.peek() == PREAMBLE)
         {
-            // We've found the start; Nano is now "attending" to the bus
-            negotiationActive = true;
+            // Advance past the preamble byte safely since it's already verified
+            nexTalker.read();
 
-            uint8_t len = nexSerial.read();
-            uint8_t src = nexSerial.read();
-            uint8_t dest = nexSerial.read();
+            // Read the length byte
+            uint8_t len = nexTalker.read();
+
+            // CRITICAL GATE: Wait for the entire trailing body specified by 'len'
+            // plus its trailing checksum byte to land in the hardware buffer
+            unsigned long timeout = millis();
+            while (nexTalker.available() < (len + 1))
+            {
+                if (millis() - timeout > 10) // 10ms safety breakout
+                {
+                    Serial.println(F("--- HANDSHAKE ERROR: Packet Truncated ---"));
+                    return;
+                }
+            }
+
+            // Advance past the source byte (not needed for filtering)
+            nexTalker.read();
+
+            // Read the destination and command bytes we actually care about
+            uint8_t dest = nexTalker.read();
+            uint8_t cmd = nexTalker.read();
 
             if (dest == ADDR_GPS)
             {
-                uint8_t cmd = nexTalker.read();
-
                 if (cmd == CMD_GET_VER)
                 {
-                    // The "Atomic Wrap" starts here
+                    negotiationActive = true;
+
                     syncEventAnchor([]()
                                     {
                         // Response data: Length, Src, Dest, Cmd, VerMajor, VerMinor
                         uint8_t verResp[] = {0x05, ADDR_GPS, ADDR_HC, CMD_GET_VER, 0x01, 0x02};
-                        
-                        // Execute the strike
                         sendNexPacket(verResp, 6); });
 
-                    // Serial.print is MOVED outside the syncEventAnchor
-                    // so it doesn't inflate the "Locked" duration on the LA.
-                    Serial.println(F(">>> v1.4: Locked State (GET_VER) Captured on D7"));
+                    Serial.println(F(">>> v1.4: Handshake Response Fired! <<<"));
+
+                    // Consume the remaining checksum byte left in the buffer to clear the track
+                    if (nexTalker.available() > 0)
+                        nexTalker.read();
+
+                    negotiationActive = false;
                 }
             }
-            negotiationActive = false;
+        }
+        else
+        {
+            // If the buffer doesn't start with 0x3B, flush the single junk byte to keep scrolling
+            nexTalker.read();
         }
     }
 }
