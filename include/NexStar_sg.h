@@ -82,89 +82,93 @@ uint8_t calculateChecksum(uint8_t *p, uint8_t len)
 
 void sendNexPacket(uint8_t *p, uint8_t len)
 {
-    // Rem muzzle checking or logging if active
     if (muzzleActive)
         return;
 
-    // DO NOT manually call pinMode() or digitalWrite() here.
-    // Let nexSerial (soss) stream the bits natively through direct port manipulation.
-
-    // 1. Fire the Preamble
+    // Stream the payload cleanly
     nexSerial.write(PREAMBLE);
-
-    // 2. Stream the Payload array elements exactly as packed
     for (uint8_t i = 0; i < len; i++)
     {
         nexSerial.write(p[i]);
     }
 
-    // 3. Calculate the Checksum using the explicit Celestron-aligned routine
-    // Pass the payload pointer and its designated length element
     uint8_t chk = calculateNEXChecksum(p, len);
     nexSerial.write(chk);
 }
 
 void processNexStar()
 {
-    // Check if at least a minimal packet header has arrived (Preamble + Length)
-    if (nexTalker.available() >= 2)
+
+    // Pure, unfiltered hardware stream output
+    if (nexTalker.available() > 0)
     {
-        // Peek at the first byte without consuming it to verify the preamble
-        if (nexTalker.peek() == PREAMBLE)
-        {
-            // Advance past the preamble byte safely since it's already verified
-            nexTalker.read();
+        uint8_t rawByte = nexTalker.read();
 
-            // Read the length byte
-            uint8_t len = nexTalker.read();
-
-            // CRITICAL GATE: Wait for the entire trailing body specified by 'len'
-            // plus its trailing checksum byte to land in the hardware buffer
-            unsigned long timeout = millis();
-            while (nexTalker.available() < (len + 1))
-            {
-                if (millis() - timeout > 10) // 10ms safety breakout
-                {
-                    Serial.println(F("--- HANDSHAKE ERROR: Packet Truncated ---"));
-                    return;
-                }
-            }
-
-            // Advance past the source byte (not needed for filtering)
-            nexTalker.read();
-
-            // Read the destination and command bytes we actually care about
-            uint8_t dest = nexTalker.read();
-            uint8_t cmd = nexTalker.read();
-
-            if (dest == ADDR_GPS)
-            {
-                if (cmd == CMD_GET_VER)
-                {
-                    negotiationActive = true;
-
-                    syncEventAnchor([]()
-                                    {
-                        // Response data: Length, Src, Dest, Cmd, VerMajor, VerMinor
-                        uint8_t verResp[] = {0x05, ADDR_GPS, ADDR_HC, CMD_GET_VER, 0x01, 0x02};
-                        sendNexPacket(verResp, 6); });
-
-                    Serial.println(F(">>> v1.4: Handshake Response Fired! <<<"));
-
-                    // Consume the remaining checksum byte left in the buffer to clear the track
-                    if (nexTalker.available() > 0)
-                        nexTalker.read();
-
-                    negotiationActive = false;
-                }
-            }
-        }
-        else
-        {
-            // If the buffer doesn't start with 0x3B, flush the single junk byte to keep scrolling
-            nexTalker.read();
-        }
+        Serial.print(F("RAW_D5: 0x"));
+        if (rawByte < 0x10)
+            Serial.print('0');
+        Serial.println(rawByte, HEX);
     }
+    /*
+     // Check if at least a minimal header has landed in the stream buffer
+      if (nexTalker.available() >= 2)
+      {
+          // Verify the preamble alignment frame
+          if (nexTalker.peek() == PREAMBLE)
+          {
+              nexTalker.read();               // Consume Preamble (0x3B)
+              uint8_t len = nexTalker.read(); // Extract the designated Length byte (0x03)
+
+              // CRITICAL TIMING GATE: Wait for the trailing payload + checksum byte
+              unsigned long timeout = millis();
+              while (nexTalker.available() < (len + 1))
+              {
+                  if (millis() - timeout > 15) // Lifted to 15ms to tolerate GPS bit-bang overlap
+                  {
+                      Serial.println(F("--- HANDSHAKE ERROR: Packet Truncated ---"));
+                      return;
+                  }
+              }
+
+              // Ingest the remaining packet body into a secure local storage array
+              uint8_t rxBuf[12];
+              for (uint8_t i = 0; i < (len + 1); i++)
+              {
+                  rxBuf[i] = nexTalker.read();
+              }
+
+              // Map variables cleanly based on fixed offset indices:
+              // rxBuf[0] = Source Address (0x0D)
+              // rxBuf[1] = Destination Address (0xB0)
+              // rxBuf[2] = Command Identification (0xFE)
+              // rxBuf[3] = Checksum Frame (0x42)
+              uint8_t dest = rxBuf[1];
+              uint8_t cmd = rxBuf[2];
+
+              if (dest == ADDR_GPS)
+              {
+                  if (cmd == CMD_GET_VER)
+                  {
+                      negotiationActive = true;
+
+                      // Response structure payload: Len, Src, Dest, Cmd, VerMajor, VerMinor
+                      uint8_t verResp[] = {0x05, ADDR_GPS, ADDR_HC, CMD_GET_VER, 0x01, 0x02};
+
+                      // Direct main thread invocation to shield against lambda capture issues
+                      sendNexPacket(verResp, 6);
+
+                      Serial.println(F(">>> v1.4: Handshake Response Fired! <<<"));
+                      negotiationActive = false;
+                  }
+              }
+          }
+          else
+          {
+              // If the buffer alignment slips, clear individual junk bytes to scroll forward
+              nexTalker.read();
+          }
+      }
+  */
 }
 
 #endif
