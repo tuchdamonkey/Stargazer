@@ -16,10 +16,9 @@
 // --- Bridge-Guard States ---
 enum SystemState
 {
-    STATE_IDLE,     // Waiting for a Start Bit from GPS
-    STATE_ACQUIRE,  // Actively bit-banging a GPS character
-    STATE_VALIDATE, // Full sentence received, checking Checksum
-    STATE_RELAY     // Pushing "Golden Packet" to NexStar
+    STATE_NEX_LISTENING, // Default: Nano is paying full attention to the telescope bus
+    STATE_NEX_ENGAGED,   // Locked: Telescope is actively talking. Deep "Do Not Disturb" mode
+    STATE_GPS_SIPHON     // Lease: Telescope is silent, Nano has permission to sip GPS data
 };
 
 // These tell other files that these variables exist somewhere else (in main.cpp)

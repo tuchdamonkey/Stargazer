@@ -142,6 +142,7 @@ void rossPrint(const char *str)
 
 void setupGPS()
 {
+
   pinMode(GPS_RX_PIN, INPUT_PULLUP);
   pinMode(GPS_TX_PIN, OUTPUT);
   digitalWrite(GPS_TX_PIN, HIGH);
@@ -154,7 +155,7 @@ void setupGPS()
   rossPrint("$PUBX,40,RMC,0,1,0,0,0,0*47\r\n");
   rossPrint("$PUBX,40,GGA,0,1,0,0,0,0*5A\r\n");
 
-  currentState = STATE_IDLE;
+  currentState = STATE_NEX_LISTENING;
 }
 
 #endif

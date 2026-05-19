@@ -11,7 +11,7 @@
 TinyGPSPlus gps;
 
 // --- Bridge-Guard Physical Memory Definitions ---
-volatile SystemState currentState = STATE_IDLE;
+volatile SystemState currentState = STATE_NEX_LISTENING;
 volatile int bufIndex = 0;
 volatile bool packetReady = false;
 char goldenPacket[85];
@@ -24,6 +24,9 @@ const int sipInterval = 3000;
 
 ross nexTalker(NEX_TX_PIN, false);
 soss nexSerial(NEX_RX_PIN, false);
+
+// --- Function Prototypes ---
+void manageSystemState();
 
 void setup()
 {
@@ -44,11 +47,19 @@ void setup()
 
 void loop()
 {
-  // 1. THE SIPHONER: Check for 1 byte of GPS, then yield.
-  captureGpsBurst();
-
-  // 2. THE LISTENER: Priority check for Mount commands (Wrapped for Diagnostics)
+  // 1. THE PRIORITY LISTENER: Always check the telescope mount first with absolute zero latency
   processNexStar();
+
+  // 2. THE PASSPORT CONTROL
+  // --- System state management ---
+  manageSystemState();
+
+  // --- GPS management ---
+
+  if (isGpsPermissionGranted())
+  {
+    captureGpsBurst();
+  }
 
   // 3. THE TRANSLATOR: Update the 24-bit cache when GPS is fresh.
   if (gps.location.isUpdated())
@@ -82,9 +93,55 @@ void loop()
     Serial.println(F("BRAIN_CHECK: Looping..."));
     lastHeartbeat = millis();
   }
+}
 
-  // --- PASSIVE WINDOW GUARD ---
-  // If we are within the 500ms silence guard window, force D7 LOW to revoke permission
-  if (millis() - lastNexActivity < nexSilenceWindow)
-    SYNC_LOW();
+//==================================================
+
+/**
+ * @brief Background execution engine that manages microcontroller ownership.
+ * Handles the "Do Not Disturb" state logic outside of the main loop.
+ */
+void manageSystemState()
+{
+  // RAW HARDWARE WIRE-TRAP: If the NexStar line physically drops LOW (Start Bit),
+  // instantly force the system into ENGAGED state before software parsing even begins.
+  if (digitalRead(NEX_RX_PIN) == LOW)
+  {
+    currentState = STATE_NEX_ENGAGED;
+    lastNexActivity = millis();
+  }
+
+  // Evaluate the current state rules
+  switch (currentState)
+  {
+  case STATE_NEX_LISTENING:
+    // If bytes arrive via the software buffer, instantly lock down
+    if (nexTalker.available() > 0)
+    {
+      currentState = STATE_NEX_ENGAGED;
+      lastNexActivity = millis();
+    }
+    break;
+
+  case STATE_NEX_ENGAGED:
+    // Check the clock: Have we reached a verified 500ms of absolute silence?
+    if (millis() - lastNexActivity >= nexSilenceWindow)
+    {
+      currentState = STATE_GPS_SIPHON; // Safety window cleared. Lease permission to GPS.
+    }
+    break;
+
+  case STATE_GPS_SIPHON:
+    // Run the live distraction
+    captureGpsBurst();
+
+    // Immediate eviction check: If a byte sneaks into the buffer during the siphon,
+    // instantly strip ownership away from the GPS and lock the door.
+    if (nexTalker.available() > 0)
+    {
+      currentState = STATE_NEX_ENGAGED;
+      lastNexActivity = millis();
+    }
+    break;
+  }
 }
