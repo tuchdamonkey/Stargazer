@@ -17,7 +17,7 @@ volatile bool packetReady = false;
 char goldenPacket[85];
 
 // --- System State Flags ---
-bool muzzleActive = true;
+bool muzzleActive = false;
 bool negotiationActive = false;
 unsigned long lastSip = 0;
 const int sipInterval = 3000;

@@ -13,6 +13,7 @@ extern soss nexSerial;
 extern ross nexTalker;
 extern bool negotiationActive;
 extern void syncEventAnchor(void (*func)());
+extern bool muzzleActive;
 
 // --- AUX BUS PROTOCOL CONSTANTS ---
 const uint8_t PREAMBLE = 0x3B;
@@ -81,23 +82,26 @@ uint8_t calculateChecksum(uint8_t *p, uint8_t len)
 
 void sendNexPacket(uint8_t *p, uint8_t len)
 {
-    // Ensure the pin is explicitly configured to drive the line
-    pinMode(NEX_RX_PIN, OUTPUT);
+    // Rem muzzle checking or logging if active
+    if (muzzleActive)
+        return;
 
-    // USE nexTalker (soss) for Transmitting
+    // DO NOT manually call pinMode() or digitalWrite() here.
+    // Let nexSerial (soss) stream the bits natively through direct port manipulation.
+
+    // 1. Fire the Preamble
     nexSerial.write(PREAMBLE);
+
+    // 2. Stream the Payload array elements exactly as packed
     for (uint8_t i = 0; i < len; i++)
     {
         nexSerial.write(p[i]);
     }
 
-    uint8_t chk = calculateChecksum(p, len);
+    // 3. Calculate the Checksum using the explicit Celestron-aligned routine
+    // Pass the payload pointer and its designated length element
+    uint8_t chk = calculateNEXChecksum(p, len);
     nexSerial.write(chk);
-
-    // Active Idle Realignment: Force the pin HIGH and maintain OUTPUT status.
-    // This shuts off the 6N137 LED, completely releasing the physical Aux Bus.
-    digitalWrite(NEX_RX_PIN, HIGH);
-    pinMode(NEX_RX_PIN, OUTPUT);
 }
 
 void processNexStar()
