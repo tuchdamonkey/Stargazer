@@ -35,7 +35,7 @@ void setup()
   nexSerial.begin(19200);
   nexTalker.begin(19200);
 
-  // setupGPS();
+  setupGPS();
   setupNexStar();
   Serial.println(F("--- StarGazer v1.0: Ross/Soss Stage 1 ---"));
 
@@ -45,7 +45,7 @@ void setup()
 void loop()
 {
   // 1. THE SIPHONER: Check for 1 byte of GPS, then yield.
-  // captureGpsBurst();
+  captureGpsBurst();
 
   // 2. THE LISTENER: Priority check for Mount commands.
   processNexStar();

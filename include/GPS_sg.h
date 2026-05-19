@@ -102,7 +102,8 @@ void captureGpsBurst()
       if (isChecksumValid(rmcStart) && isChecksumValid(ggaStart))
       {
         siloReady = true;
-        // Optional: Serial.println(F("GPS_SIP_COMPLETE"));
+        // Optional:
+        Serial.println(F("GPS_SIP_COMPLETE"));
       }
       else
       {
