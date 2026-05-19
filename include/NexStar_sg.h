@@ -25,6 +25,10 @@ const uint8_t CMD_GET_VER = 0xFE;
 const uint8_t CMD_GET_LOC = 0x01;  // Stage 2: Coordinates
 const uint8_t CMD_GET_TIME = 0x03; // Stage 3: Time/Date
 
+// Nex gap silence timing
+unsigned long lastNexActivity = 0;
+const unsigned long nexSilenceWindow = 500; // 500ms required for "Silence"
+
 // --- STAGE 2: TRANSLATION & BUFFERING ---
 
 // Global buffer holding the last validated 3-byte coordinate translation.
@@ -92,7 +96,7 @@ void sendNexPacket(uint8_t *p, uint8_t len)
         nexSerial.write(p[i]);
     }
 
-    uint8_t chk = calculateNEXChecksum(p, len);
+    uint8_t chk = calculateChecksum(p, len);
     nexSerial.write(chk);
 }
 
@@ -138,6 +142,7 @@ void processNexStar()
             {
                 if (cmd == CMD_GET_VER)
                 {
+                    toggleDiagnostic(); // <<< DIAGNOSTIC: REMOVE OR COMMENT OUT EASILY
                     negotiationActive = true;
 
                     // Response structure payload: Len, Src, Dest, Cmd, VerMajor, VerMinor

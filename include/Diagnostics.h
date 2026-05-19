@@ -20,17 +20,22 @@
 // Fast Toggle: Writing to the PIN register toggles the state
 void toggleDiagnostic()
 {
-    PIND |= (1 << 7);
+  PIND |= (1 << 7);
 }
-#endif
 
-/*void syncEventAnchor(void (*func)())
+// Inform the compiler that our clock exists inside NexStar_sg.h
+extern unsigned long lastNexActivity;
+
+void syncEventAnchor(void (*func)())
 {
   if (func != nullptr)
   {
-    SYNC_HIGH(); // Enter Locked State
-    func();      // Execute NexStar Response
-    SYNC_LOW();  // Exit Locked State
+    SYNC_LOW();  // Drop D7: Entering Protected / Active Priority State
+    func();      // Execute the task (e.g., processNexStar)
+    SYNC_HIGH(); // Raise D7: Returning to Silent / Open State
+
+    // External tracking assignment
+    lastNexActivity = millis();
   }
 }
-  */
+#endif

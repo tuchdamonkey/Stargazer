@@ -47,7 +47,7 @@ void loop()
   // 1. THE SIPHONER: Check for 1 byte of GPS, then yield.
   captureGpsBurst();
 
-  // 2. THE LISTENER: Priority check for Mount commands.
+  // 2. THE LISTENER: Priority check for Mount commands (Wrapped for Diagnostics)
   processNexStar();
 
   // 3. THE TRANSLATOR: Update the 24-bit cache when GPS is fresh.
@@ -82,22 +82,9 @@ void loop()
     Serial.println(F("BRAIN_CHECK: Looping..."));
     lastHeartbeat = millis();
   }
-}
 
-//==================================================
-
-// main.cpp
-
-/**
- * @brief The Atomic Wrap: Ensures D7 is strictly a "Thinking State" indicator.
- * Snap HIGH, execute, snap LOW. No exceptions.
- */
-void syncEventAnchor(void (*func)())
-{
-  if (func != nullptr)
-  {
-    // Diagnostics Overhaul: Bypassed SYNC_HIGH() and SYNC_LOW() macros
-    // to leave the D7 physical pin completely inert on the logic analyzer.
-    func(); // Execute NexStar Response directly
-  }
+  // --- PASSIVE WINDOW GUARD ---
+  // If we are within the 500ms silence guard window, force D7 LOW to revoke permission
+  if (millis() - lastNexActivity < nexSilenceWindow)
+    SYNC_LOW();
 }
