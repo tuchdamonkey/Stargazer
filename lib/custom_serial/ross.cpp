@@ -62,9 +62,9 @@ static const DELAY_TABLE PROGMEM table[] =
 		*/
 		{
 			19200,
-			54,
-			104,
-			104,
+			52,
+			107,
+			107,
 			104,
 		}
 		/*,
