@@ -92,7 +92,7 @@ void captureGpsBurst()
 
   // Detection: End of burst (Look for the newline)
   // We only run the heavy string analysis when we hit the end of the sentence
-  if (c == '\n' && siloIndex > 100)
+  if (c == '\n')
   {
     char *rmcStart = strstr(gpsSilo, "$GPRMC");
     char *ggaStart = strstr(gpsSilo, "$GPGGA");
@@ -110,12 +110,14 @@ void captureGpsBurst()
 
         siloReady = false;
       }
+      siloIndex = 0; // Reset bucket only when a complete set is processed
     }
-
-    // IMPORTANT: Reset siloIndex for the NEXT burst
-    // This turns the bucket back over to start fresh.
-    siloIndex = 0;
-    // Note: we don't memset here to save cycles; the next burst will overwrite.
+    else if (siloIndex >= (SILO_SIZE - 20))
+    {
+      // Safety release valve: If the bucket is getting full but we don't have both
+      // sentences yet, reset to prevent an unmanaged buffer overflow.
+      siloIndex = 0;
+    }
   }
 }
 
