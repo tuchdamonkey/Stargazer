@@ -142,6 +142,7 @@ void rossPrint(const char *str)
     rossWrite(*str++);
 }
 
+//=============ORIGINAL CODE===========
 void setupGPS()
 {
 
@@ -158,6 +159,42 @@ void setupGPS()
   rossPrint("$PUBX,40,GGA,0,1,0,0,0,0*5A\r\n");
 
   currentState = STATE_NEX_LISTENING;
-}
 
+/*
+//===============FLOOD GATES OPEN==============
+//   (  !! for diagnostic testing only !! )
+// ============================================================================
+// PROVISIONAL CONFIGURATION: 5Hz DATA STORM EXPERIMENT
+// ============================================================================
+void setupGPS()
+{
+  pinMode(GPS_RX_PIN, INPUT_PULLUP);
+  pinMode(GPS_TX_PIN, OUTPUT);
+  digitalWrite(GPS_TX_PIN, HIGH);
+
+  // 1. Send the proprietary UBX-CFG-RATE binary payload to reconfigure
+  // the physical GPS engine from 1Hz (1000ms) to 5Hz (200ms updates).
+  uint8_t cfgRate5Hz[] = {
+      0xB5, 0x62, // UBX Sync Chars
+      0x06, 0x08, // Class: CFG, ID: RATE
+      0x06, 0x00, // Payload Length: 6 bytes
+      0xC8, 0x00, // Measurement Period: 200ms (0x00C8)
+      0x01, 0x00, // Navigation Cycle: 1
+      0x01, 0x00, // Time Reference: UTC (1)
+      0xDE, 0x6A  // Checksum A and B
+  };
+
+  // Stream the binary payload directly over the TX line
+  for (uint8_t i = 0; i < sizeof(cfgRate5Hz); i++)
+  {
+    rossWrite(cfgRate5Hz[i]);
+  }
+
+  // 2. By leaving all $PUBX lines completely absent from this block,
+  // the hardware will flood us with all sentences (RMC, GGA, GLL, GSA, GSV, VTG) at 5Hz.
+
+  currentState = STATE_NEX_LISTENING;
+}
+// ============================================================================
+*/
 #endif
