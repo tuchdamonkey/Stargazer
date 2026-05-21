@@ -159,6 +159,7 @@ void setupGPS()
   rossPrint("$PUBX,40,GGA,0,1,0,0,0,0*5A\r\n");
 
   currentState = STATE_NEX_LISTENING;
+}
 
 /*
 //===============FLOOD GATES OPEN==============
