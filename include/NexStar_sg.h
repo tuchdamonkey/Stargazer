@@ -86,6 +86,10 @@ uint8_t calculateChecksum(uint8_t *p, uint8_t len)
 
 void sendNexPacket(uint8_t *p, uint8_t len)
 {
+    // ARBITRATION CUSHION: Wait exactly 3ms after the master finishes talking.
+    // This allows the telescope hardware transceivers to switch directions and settle.
+    delay(3);
+
     if (muzzleActive)
         return;
 
