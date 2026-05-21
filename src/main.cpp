@@ -10,20 +10,29 @@
 
 TinyGPSPlus gps;
 
-// --- Bridge-Guard Physical Memory Definitions ---
+// --- Bridge-Guard Physical Memory Allocations ---
 volatile SystemState currentState = STATE_NEX_LISTENING;
 volatile int bufIndex = 0;
 volatile bool packetReady = false;
 char goldenPacket[85];
 
-// --- System State Flags ---
-bool muzzleActive = false;
-bool negotiationActive = false;
-unsigned long lastSip = 0;
-const int sipInterval = 3000;
+char gpsSilo[SILO_SIZE];
+int siloIndex = 0;
+bool siloReady = false;
 
+// --- NexStar Bus Object & State Instantiations ---
 ross nexTalker(NEX_TX_PIN, false);
 soss nexSerial(NEX_RX_PIN, false);
+bool negotiationActive = false;
+bool muzzleActive = false;
+
+// --- Shared Extern Allocations ---
+unsigned long lastNexActivity = 0; // Concrete master location in RAM
+uint8_t nexPayload[3];             // Concrete master location in RAM
+
+// --- Main Loop Timing Gating ---
+unsigned long lastSip = 0;
+const int sipInterval = 3000;
 
 // --- Function Prototypes ---
 void manageSystemState();
@@ -55,10 +64,9 @@ void loop()
   manageSystemState();
 
   // --- GPS management ---
-
   if (isGpsPermissionGranted())
   {
-    captureGpsBurst();
+    // captureGpsBurst();
   }
 
   // 3. THE TRANSLATOR: Update the 24-bit cache when GPS is fresh.

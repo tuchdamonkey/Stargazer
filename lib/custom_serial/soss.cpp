@@ -152,7 +152,7 @@ const int XMIT_START_ADJUSTMENT = 6;
 
 #endif
 
-static uint8_t tx_pin;
+// static uint8_t tx_pin;
 
 //
 // Debugging
@@ -206,8 +206,7 @@ soss::soss(uint8_t transmitPin, bool inverse_logic /* = false */, bool errors_ok
 																								  _inverse_logic(inverse_logic),
 																								  _errors_ok(errors_ok)
 {
-	tx_pin = transmitPin;
-	//	setTX(transmitPin);
+	setTX(transmitPin); // Call the instance method directly using the passed parameter
 }
 
 //
@@ -233,7 +232,7 @@ void soss::setTX(uint8_t tx)
 
 void soss::begin(long speed)
 {
-	setTX(tx_pin);
+	// setTX(tx_pin);
 
 	_tx_delay = 0;
 

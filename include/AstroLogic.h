@@ -3,9 +3,16 @@
 
 #include <Arduino.h>
 
-// Pillar 2: Translation (Lean Version)
-// Scaler: 2^24 / 360 = 46603.3777
-#define COORD_TO_24BIT 46603.3777
+// ==========================================
+// 1. CONSTANTS & MATRICES
+// ==========================================
+// Scaler: 2^24 / 360 = 46603.377777...
+// Appended 'double' literal precision identifier (UL) to protect coordinates
+#define COORD_TO_24BIT 46603.3777777778
+
+// ==========================================
+// 2. TEXT PROCESSING & PARSING UTILITIES
+// ==========================================
 
 /**
  * Helper: Returns a pointer to the start of the Nth field in a comma-separated string.
@@ -47,7 +54,6 @@ float convertNMEAToDecimal(const char *raw, char dir)
     float mins = atof(minuteStart);
 
     // 4. Extract Degrees
-    // We temporarily "truncate" the string to read only the degree part
     char degBuf[5]; // Max 3 digits for Longitude (180) + null
     int degLen = minuteStart - raw;
     if (degLen > 4)
@@ -69,59 +75,14 @@ float convertNMEAToDecimal(const char *raw, char dir)
     return decimalDegrees;
 }
 
+// ==========================================
+// 3. MATH & PACKING HELPERS
+// ==========================================
+
 /**
- * Assembles a NexStar GPS/Time Update Packet (0x3B Command)
- * Packet Structure: [3B] [Len] [Source] [Dest] [Cmd] [Payload...] [Checksum]
+ * Pillar 2: Coordinate Packing Math
+ * Converts coordinate maps to the 24-bit telescope position architecture.
  */
-void buildNEXPacket(uint8_t *buf, double lat, double lon, uint8_t h, uint8_t m, uint8_t s)
-{
-
-    // --- TOP LEVEL SANITIZATION ---
-    // Nashville Fix: Normalize West to 0-360 range
-    if (lon < 0)
-    {
-        lon += 360.0;
-    }
-    // (Optional) If your mount expects 0-360 for Lat as well, you'd do it here.
-
-    // 1. Preamble
-    buf[0] = 0x3B;
-
-    // 2. Length (13 bytes follow this one)
-    buf[1] = 0x0D;
-
-    // 3. Routing
-    buf[2] = 0x0E; // Source: GPS
-    buf[3] = 0x01; // Destination: Main Control
-    buf[4] = 0x3B; // Command: Time/Location Update
-
-    // 4. Payload: Latitude (24-bit)
-    uint32_t lat24 = (uint32_t)(lat * COORD_TO_24BIT);
-    buf[5] = (lat24 >> 16) & 0xFF;
-    buf[6] = (lat24 >> 8) & 0xFF;
-    buf[7] = lat24 & 0xFF;
-
-    // 5. Payload: Longitude (24-bit)
-    uint32_t lon24 = (uint32_t)(lon * COORD_TO_24BIT);
-    buf[8] = (lon24 >> 16) & 0xFF;
-    buf[9] = (lon24 >> 8) & 0xFF;
-    buf[10] = lon24 & 0xFF;
-
-    // 6. Payload: Time (Raw Bytes)
-    buf[11] = h;
-    buf[12] = m;
-    buf[13] = s;
-
-    // 7. The Bodyguard (Checksum)
-    uint16_t sum = 0;
-    for (uint8_t i = 1; i <= 13; i++)
-    {
-        sum += buf[i];
-    }
-    buf[14] = (uint8_t)((-sum) & 0xFF);
-}
-
-// We use macros or inline to save stack space
 inline void packNEXCoord(double coord, uint8_t &hi, uint8_t &mid, uint8_t &lo)
 {
     if (coord < 0)
@@ -131,9 +92,6 @@ inline void packNEXCoord(double coord, uint8_t &hi, uint8_t &mid, uint8_t &lo)
     mid = (val >> 8) & 0xFF;
     lo = val & 0xFF;
 }
-
-// Time is just a direct pass-through for NEX, no helper needed.
-// Use: packet[7] = gps.time.hour();
 
 /**
  * Pillar 3: Delivery (Checksum)
@@ -153,8 +111,45 @@ uint8_t calculateNEXChecksum(uint8_t *packet, uint8_t len)
     return (uint8_t)((-sum) & 0xFF);
 }
 
+// ==========================================
+// 4. PACKET GENERATION DRIVERS
+// ==========================================
+
+/**
+ * Assembles a NexStar GPS/Time Update Packet (0x3B Command)
+ * Packet Structure: [3B] [Len] [Source] [Dest] [Cmd] [Payload...] [Checksum]
+ */
+void buildNEXPacket(uint8_t *buf, double lat, double lon, uint8_t h, uint8_t m, uint8_t s)
+{
+    // 1. Preamble
+    buf[0] = 0x3B;
+
+    // 2. Length (13 bytes follow this one)
+    buf[1] = 0x0D;
+
+    // 3. Routing
+    buf[2] = 0x0E; // Source: GPS
+    buf[3] = 0x01; // Destination: Main Control
+    buf[4] = 0x3B; // Command: Time/Location Update
+
+    // 4. Payload: Latitude (24-bit) via top-defined helper
+    packNEXCoord(lat, buf[5], buf[6], buf[7]);
+
+    // 5. Payload: Longitude (24-bit) via top-defined helper
+    packNEXCoord(lon, buf[8], buf[9], buf[10]);
+
+    // 6. Payload: Time (Raw Bytes)
+    buf[11] = h;
+    buf[12] = m;
+    buf[13] = s;
+
+    // 7. The Bodyguard (Checksum)
+    // Refactored to leverage your unified checksum algorithm directly!
+    buf[14] = calculateNEXChecksum(buf, 15);
+}
+
 // ============================================================================
-// DIAGNOSTICS & LOGGING
+// 5. DIAGNOSTICS & LOGGING
 // ============================================================================
 
 /**
